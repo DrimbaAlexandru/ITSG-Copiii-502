@@ -1,6 +1,8 @@
 from Tkinter import *
 import tkFileDialog
 
+from niiPlot import MRI_plot 
+
 class App:
     
     #Class variables
@@ -15,14 +17,14 @@ class App:
         self.root = master
         
         #Class constants
-        self._menu_file = [ ( "Open NIfTI image...",         self._on_load_image         ), 
-               ( "Open NIfTI image labels...",  self._on_load_labels        ), 
-               ( "Separator",                   None                        ), 
-               ( "Generate labels...",          self._not_yet_implemented   ),
-               ( "Separator",                   None                        ), 
-               ( "Exit",                        self.root.quit              ) ]
+        self._menu_file = [( "Open NIfTI image...",         self._on_load_image         ), 
+                           ( "Open NIfTI image labels...",  self._on_load_labels        ), 
+                           ( "Separator",                   None                        ), 
+                           ( "Generate labels...",          self._not_yet_implemented   ),
+                           ( "Separator",                   None                        ), 
+                           ( "Exit",                        self.root.quit              )]
 
-        self._menu_options = [ ( "ML method",                self._not_yet_implemented   ) ]
+        self._menu_options = [( "ML method", self._not_yet_implemented )]
 
         self._menus = [ ( "File", self._menu_file ), ( "Options", self._menu_options ) ]
 
@@ -57,8 +59,8 @@ class App:
         print "castraveCiori"
         
     def _display_nifti_image( self ):
-        print self.image_path
-        print self.label_path
+        self.plot_canvas = MRI_plot( self.image_path, self.label_path )
+        self.plot_canvas.set_image_paths( self.image_path, self.label_path )
 
         
 #Create and start de app
