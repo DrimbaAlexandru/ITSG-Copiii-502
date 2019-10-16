@@ -12,7 +12,8 @@ class App:
     plot_canvas = None
     
     #Procedures
-    def __init__(self, master):        
+    def __init__(self, master):       
+        print "init"
         #Initialize variables
         self.root = master
         
@@ -28,6 +29,8 @@ class App:
 
         self._menus = [ ( "File", self._menu_file ), ( "Options", self._menu_options ) ]
 
+        self.root.title("The best project in the whole goddamn world")
+        
         #Initialize the menu bar
         self._init_menus()
 
@@ -38,7 +41,7 @@ class App:
         for menuName, options in self._menus:
             filemenu = Menu( self.menubar, tearoff = 0 )
             for subMenuName, action in options:
-                if action != None:
+                if action is not None:
                     filemenu.add_command( label = subMenuName, command = action )
                 else:
                     filemenu.add_separator()
@@ -48,19 +51,24 @@ class App:
         self.root.config( menu = self.menubar )
         
     def _on_load_image( self ):
-        self.image_path = tkFileDialog.askopenfilename(initialdir = "/",title = "Select image file",filetypes = (("NIfTI files","*.nii.gz;*.nii"),("all files","*.*")))
-        self._display_nifti_image()
+        self.image_path = tkFileDialog.askopenfilename(parent=self.root, initialdir = "/",title = "Select image file",filetypes = (("NIfTI files","*.nii.gz;*.nii"),("all files","*.*")))
+        self.label_path = None
+        if( self.image_path is not None ):
+            self._display_nifti_image()
         
     def _on_load_labels( self ):
-        self.label_path = tkFileDialog.askopenfilename(initialdir = "/",title = "Select image mask",filetypes = (("NIfTI files","*.nii.gz;*.nii"),("all files","*.*")))
-        self._display_nifti_image()
+        self.label_path = tkFileDialog.askopenfilename(parent=self.root, initialdir = "/",title = "Select image mask",filetypes = (("NIfTI files","*.nii.gz;*.nii"),("all files","*.*")))
+        if( self.label_path is not None ):
+            self._display_nifti_image()
         
     def _not_yet_implemented( self ):
         print "castraveCiori"
         
-    def _display_nifti_image( self ):
-        self.plot_canvas = MRI_plot( self.image_path, self.label_path )
-        self.plot_canvas.set_image_paths( self.image_path, self.label_path )
+    def _display_nifti_image( self ):       
+        if( self.plot_canvas is None or ( not self.plot_canvas.is_showing)):
+            self.plot_canvas = MRI_plot( self.image_path, self.label_path )
+        else:
+            self.plot_canvas.set_image_paths( self.image_path, self.label_path )
 
         
 #Create and start de app

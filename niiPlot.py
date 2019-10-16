@@ -1,5 +1,12 @@
+import matplotlib
+
+matplotlib.use('TkAgg')
+
 import nibabel as nib
 import matplotlib.pyplot as plt
+from matplotlib.image import AxesImage
+from matplotlib.colors import Normalize
+
 
 class MRI_plot:
     _base_image_path = None
@@ -7,32 +14,40 @@ class MRI_plot:
     
     _base_image_data = None
     _mask_image_data = None
+    _image_min_max = ( 0, 1 )
     
-    _mask_transparency = 0.5
+    _mask_transparency = 0.125
     
     _axial_pos = 0
     _saggital_pos = 0
     _coronal_pos = 0
     
     _plot_canvas = None
-    _plot_axes = None
+    _plot_artists = []
     
-    def __init__( self, image_path, mask_path, transparency = 0.5 ):
+    is_showing = False
+    
+    def __init__( self, image_path, mask_path, transparency = None ):
         self.set_image_paths( image_path, mask_path, transparency )
         
         
-    def set_image_paths( self, image_path, mask_path, transparency = 0.5 ):
+    def set_image_paths( self, image_path, mask_path, transparency = None ):
         self._base_image_path = image_path
         self._mask_image_path = mask_path
-        self._mask_transparency = max( min( transparency, 1 ), 0 )
+        if( transparency is not None ):
+            self._mask_transparency = max( min( transparency, 1 ), 0 )
         
-        self.redraw()
+        self.reload()
         
         
-    def redraw( self ):
+    def reload( self ):
         if( self._base_image_path != None ):
             proxy_img = nib.load( self._base_image_path )
-            self._base_image_data = proxy_img.get_fdata()
+            canonical_img = nib.as_closest_canonical(proxy_img)
+            
+            self._base_image_data = canonical_img.get_fdata()
+            self._image_min_max = ( self._base_image_data.min(), self._base_image_data.max() )
+            
             print self._base_image_data.shape
             
             self._axial_pos = self._base_image_data.shape[ 0 ] // 2
@@ -43,74 +58,93 @@ class MRI_plot:
         
         if( self._mask_image_path != None ):
             proxy_img = nib.load( self._mask_image_path )
-            self._mask_image_data = proxy_img.get_fdata()
-            print self._mask_image_data.shape
+            canonical_img = nib.as_closest_canonical(proxy_img)
+            self._mask_image_data = canonical_img.get_fdata()
+            
+            if( self._mask_image_data.shape != self._base_image_data.shape ):
+                print "Incorrect mask dimensions"
+                self._mask_image_data = None
         else:
             self._mask_image_data = None
         
-        self._remove_keymap_conflicts({'j', 'k'})
         self._display_current_frame()
-        self._plot_canvas.canvas.mpl_connect('key_press_event', self._process_key)
-        plt.show()
-        
+        self._plot_canvas.canvas.mpl_connect('pick_event', self._on_pick)
+        if( not self.is_showing ):
+            self._plot_canvas.canvas.mpl_connect('close_event', self._handle_close)
+            plt.ion()
+            plt.show()
+            self.is_showing = True
+            
+    def _handle_close(self, evt):
+        self.is_showing = False
+        plt.close('all')
         
     def _display_current_frame( self ):
         if( self._plot_canvas == None ):
             self._plot_canvas, self._plot_axes = plt.subplots( nrows = 1, ncols = 3 )
-        
-        print self._axial_pos
-        
+                                
         slices = [ self._base_image_data[ self._axial_pos, : , :     ],
                    self._base_image_data[ : , self._saggital_pos , : ],
                    self._base_image_data[ : , : , self._coronal_pos  ] ] 
-                   
+        self._plot_artists = [ None, None, None ]
+        
+        if( not self._mask_image_data is None ):
+            mask_slices = [ self._mask_image_data[ self._axial_pos, : , :     ],
+                            self._mask_image_data[ : , self._saggital_pos , : ],
+                            self._mask_image_data[ : , : , self._coronal_pos  ] ] 
+
+        
         for i, slice in enumerate(slices):
-            self._plot_axes[ i ].imshow( slice.T, cmap="gray", origin="lower" )       
+            self._plot_axes[ i ].clear()
+            self._plot_artists[ i ] = self._plot_axes[ i ].imshow( slice.T,         \
+                                                                   cmap="gray",     \
+                                                                   origin="lower",  \
+                                                                   norm = Normalize(vmax=self._image_min_max[1], vmin=self._image_min_max[0]),     \
+                                                                   picker = True )
+            if( not self._mask_image_data is None ):
+                self._plot_axes[ i ].imshow( mask_slices[ i ].T,      \
+                                             cmap="viridis",          \
+                                             origin="lower",          \
+                                             alpha = self._mask_transparency,    \
+                                             picker = False )
+            
         self._plot_canvas.canvas.draw()
         
     def _move_slice( self, axial_delta, saggital_delta, coronal_delta ):
         self._axial_pos = self._axial_pos + axial_delta
         self._axial_pos = self._axial_pos % self._base_image_data.shape[ 0 ]
         
-    def _remove_keymap_conflicts(self, new_keys_set):
-        for prop in plt.rcParams:
-            if prop.startswith('keymap.'):
-                keys = plt.rcParams[prop]
-                remove_list = set(keys) & new_keys_set
-                for key in remove_list:
-                    keys.remove(key)
-
-    def multi_slice_viewer(volume):
-        _remove_keymap_conflicts({'j', 'k'})
-        fig, ax = plt.subplots()
-        ax.volume = volume
-        ax.index = volume.shape[0] // 2
-        ax.imshow(volume[ax.index])
-        fig.canvas.mpl_connect('key_press_event', _process_key)
-
-    def _process_key(self, event):
-        fig = event.canvas.figure
-        ax = fig.axes[0]
-        if event.key == 'j':
-            self._move_slice( 1, 0, 0 )
-        elif event.key == 'k':
-            self._move_slice( -1, 0, 0 )
+        self._saggital_pos = self._saggital_pos + saggital_delta
+        self._saggital_pos = self._saggital_pos % self._base_image_data.shape[ 1 ]
         
-        self._display_current_frame()
-        #fig.canvas.draw()
-
-    def previous_slice(ax):
-        volume = ax.volume
-        ax.index = (ax.index - 1) % volume.shape[0]  # wrap around using %
-        ax.images[0].set_array(volume[ax.index])
-
-    def next_slice(ax):
-        volume = ax.volume
-        ax.index = (ax.index + 1) % volume.shape[0]
-        ax.images[0].set_array(volume[ax.index])
-
-# struct = nib.load('D:/git/ITSG/ITSG/Training dataset/training_axial_full_pat9.nii.gz')
-# struct_arr = struct.get_data()
-# struct_arr2 = struct_arr.T
-# multi_slice_viewer(struct_arr2)
-# plt.show()
+        self._coronal_pos = self._coronal_pos + coronal_delta
+        self._coronal_pos = self._coronal_pos % self._base_image_data.shape[ 2 ]
+       
+    def _on_pick(self, event):
+        mouseevent = event.mouseevent
+        artist = event.artist
+        delta = 0
+        if mouseevent.button == 'up':
+            delta = 2
+            print "scroll up"
+        elif mouseevent.button == 'down':
+            delta = -2
+            print "scroll down"
+        if delta != 0 and isinstance(artist, AxesImage):
+            #Axial plot
+            if artist == self._plot_artists[ 0 ]:
+                print "Pick on axial image"
+                self._move_slice( delta, 0, 0 )
+        
+            #Saggital plot
+            if artist == self._plot_artists[ 1 ]:
+                print "Pick on saggital image"
+                self._move_slice( 0, delta, 0 )
+                
+            #Coronal plot
+            if artist == self._plot_artists[ 2 ]:
+                print "Pick on coronal image"
+                self._move_slice( 0, 0, delta )
+                
+            self._display_current_frame()
+            
