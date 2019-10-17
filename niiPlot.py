@@ -9,14 +9,14 @@ from matplotlib.colors import Normalize
 
 
 class MRI_plot:
-    _base_image_path = None
-    _mask_image_path = None
+    _base_image_path = ""
+    _mask_image_path = ""
     
     _base_image_data = None
     _mask_image_data = None
     _image_min_max = ( 0, 1 )
     
-    _mask_transparency = 0.125
+    _mask_transparency = 0.333
     
     _axial_pos = 0
     _saggital_pos = 0
@@ -25,7 +25,8 @@ class MRI_plot:
     _plot_canvas = None
     _plot_artists = []
     
-    is_showing = False
+    is_window_showing = False
+    _is_mask_displayed = True
     
     def __init__( self, image_path, mask_path, transparency = None ):
         self.set_image_paths( image_path, mask_path, transparency )
@@ -41,7 +42,7 @@ class MRI_plot:
         
         
     def reload( self ):
-        if( self._base_image_path != None ):
+        if( self._base_image_path != "" ):
             proxy_img = nib.load( self._base_image_path )
             canonical_img = nib.as_closest_canonical(proxy_img)
             
@@ -56,7 +57,7 @@ class MRI_plot:
         else:
             self._base_image_data = None
         
-        if( self._mask_image_path != None ):
+        if( self._mask_image_path != "" ):
             proxy_img = nib.load( self._mask_image_path )
             canonical_img = nib.as_closest_canonical(proxy_img)
             self._mask_image_data = canonical_img.get_fdata()
@@ -69,14 +70,22 @@ class MRI_plot:
         
         self._display_current_frame()
         self._plot_canvas.canvas.mpl_connect('pick_event', self._on_pick)
-        if( not self.is_showing ):
+        if( not self.is_window_showing ):
             self._plot_canvas.canvas.mpl_connect('close_event', self._handle_close)
             plt.ion()
             plt.show()
-            self.is_showing = True
+            self.is_window_showing = True
+            
+    def set_mask_transparency( self, newTransparency ):
+        _mask_transparency = newTransparency
+        self._display_current_frame()
+        
+    def set_mask_showing( self, showing ):
+        self._is_mask_displayed = showing
+        self._display_current_frame()
             
     def _handle_close(self, evt):
-        self.is_showing = False
+        self.is_window_showing = False
         plt.close('all')
         
     def _display_current_frame( self ):
@@ -88,7 +97,7 @@ class MRI_plot:
                    self._base_image_data[ : , : , self._coronal_pos  ] ] 
         self._plot_artists = [ None, None, None ]
         
-        if( not self._mask_image_data is None ):
+        if( self._is_mask_displayed and not self._mask_image_data is None ):
             mask_slices = [ self._mask_image_data[ self._axial_pos, : , :     ],
                             self._mask_image_data[ : , self._saggital_pos , : ],
                             self._mask_image_data[ : , : , self._coronal_pos  ] ] 
@@ -101,7 +110,7 @@ class MRI_plot:
                                                                    origin="lower",  \
                                                                    norm = Normalize(vmax=self._image_min_max[1], vmin=self._image_min_max[0]),     \
                                                                    picker = True )
-            if( not self._mask_image_data is None ):
+            if( self._is_mask_displayed and not self._mask_image_data is None ):
                 self._plot_axes[ i ].imshow( mask_slices[ i ].T,      \
                                              cmap="viridis",          \
                                              origin="lower",          \
