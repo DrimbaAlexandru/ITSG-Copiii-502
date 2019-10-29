@@ -49,7 +49,7 @@ class MRI_plot:
             self._base_image_data = canonical_img.get_fdata()
             self._image_min_max = ( self._base_image_data.min(), self._base_image_data.max() )
             
-            print self._base_image_data.shape
+            print( self._base_image_data.shape)
             
             self._axial_pos = self._base_image_data.shape[ 0 ] // 2
             self._saggital_pos = self._base_image_data.shape[ 1 ] // 2
@@ -63,7 +63,7 @@ class MRI_plot:
             self._mask_image_data = canonical_img.get_fdata()
             
             if( self._mask_image_data.shape != self._base_image_data.shape ):
-                print "Incorrect mask dimensions"
+                print( "Incorrect mask dimensions")
                 self._mask_image_data = None
         else:
             self._mask_image_data = None
@@ -135,24 +135,24 @@ class MRI_plot:
         delta = 0
         if mouseevent.button == 'up':
             delta = 2
-            print "scroll up"
+            print( "scroll up")
         elif mouseevent.button == 'down':
             delta = -2
-            print "scroll down"
+            print( "scroll down")
         if delta != 0 and isinstance(artist, AxesImage):
             #Axial plot
             if artist == self._plot_artists[ 0 ]:
-                print "Pick on axial image"
+                print( "Pick on axial image")
                 self._move_slice( delta, 0, 0 )
         
             #Saggital plot
             if artist == self._plot_artists[ 1 ]:
-                print "Pick on saggital image"
+                print( "Pick on saggital image")
                 self._move_slice( 0, delta, 0 )
                 
             #Coronal plot
             if artist == self._plot_artists[ 2 ]:
-                print "Pick on coronal image"
+                print( "Pick on coronal image")
                 self._move_slice( 0, 0, delta )
                 
             self._display_current_frame()

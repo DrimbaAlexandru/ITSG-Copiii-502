@@ -1,5 +1,4 @@
-from Tkinter import *
-import tkFileDialog
+import tkinter as tk
 
 from niiPlot import MRI_plot 
 
@@ -16,7 +15,7 @@ class App:
     
     #Procedures
     def __init__(self, master):       
-        print "init"
+        print( "init")
         #Initialize variables
         self.root = master
         
@@ -40,9 +39,9 @@ class App:
         #Initialize the menu bar
         self._init_menus()
         
-        self._mask_enabled_var = IntVar()
+        self._mask_enabled_var = tk.IntVar()
         self._mask_enabled_var.set( 1 )
-        c = Checkbutton( self.root, text="Show image masks", variable=self._mask_enabled_var, command=self._on_dispay_mask_changed )
+        c = tk.Checkbutton( self.root, text="Show image masks", variable=self._mask_enabled_var, command=self._on_dispay_mask_changed )
         c.pack()
         
         # self._slider = Scale(self.root, from_=0, to=1, orient=HORIZONTAL, command = self._on_slider_moved)
@@ -50,10 +49,10 @@ class App:
 
     def _init_menus( self ):
         # create a toplevel menu
-        self.menubar = Menu(self.root)
+        self.menubar = tk.Menu(self.root)
         
         for menuName, options in self._menus:
-            filemenu = Menu( self.menubar, tearoff = 0 )
+            filemenu = tk.Menu( self.menubar, tearoff = 0 )
             for subMenuName, action in options:
                 if action is not None:
                     filemenu.add_command( label = subMenuName, command = action )
@@ -65,18 +64,18 @@ class App:
         self.root.config( menu = self.menubar )
         
     def _on_load_image( self ):
-        self.image_path = tkFileDialog.askopenfilename(parent=self.root, initialdir = "/",title = "Select image file",filetypes = (("NIfTI files","*.nii.gz;*.nii"),("all files","*.*")))
+        self.image_path = tk.filedialog.askopenfilename(parent=self.root, initialdir = "/",title = "Select image file",filetypes = (("NIfTI files","*.nii.gz;*.nii"),("all files","*.*")))
         self.label_path = ""
         if( self.image_path != "" ):
             self._display_nifti_image()
         
     def _on_load_labels( self ):
-        self.label_path = tkFileDialog.askopenfilename(parent=self.root, initialdir = "/",title = "Select image mask",filetypes = (("NIfTI files","*.nii.gz;*.nii"),("all files","*.*")))
+        self.label_path = tk.filedialog.askopenfilename(parent=self.root, initialdir = "/",title = "Select image mask",filetypes = (("NIfTI files","*.nii.gz;*.nii"),("all files","*.*")))
         if( self.label_path != "" ):
             self._display_nifti_image()
         
     def _not_yet_implemented( self ):
-        print "castraveCiori"
+        print( "castraveCiori")
         
     def _display_nifti_image( self ):       
         if( self.plot_canvas is None or ( not self.plot_canvas.is_window_showing)):
@@ -97,9 +96,9 @@ class App:
 
         
 #Create and start de app
-root = Tk()
+root = tk.Tk()
 
 app = App(root)
 
 root.mainloop()
-root.destroy() # optional; see description below
+#root.destroy() # optional; see description below
