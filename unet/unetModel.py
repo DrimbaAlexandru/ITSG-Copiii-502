@@ -4,15 +4,12 @@ import random
 import warnings
 
 import numpy as np
-import pandas as pd
 
 import matplotlib.pyplot as plt
 
 from tqdm import tqdm
-from itertools import chain
-from skimage.io import imread, imsave, imshow, imread_collection, concatenate_images
+from skimage.io import imread, imsave, imshow
 from skimage.transform import resize
-from skimage.morphology import label
 
 from keras.models import Model, load_model
 from keras.layers import Input
@@ -22,8 +19,6 @@ from keras.layers.pooling import MaxPooling2D
 from keras.layers.merge import concatenate
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 from keras import backend as K
-
-import tensorflow as tf
 
 warnings.filterwarnings('ignore', category=UserWarning, module='skimage')
 seed = 42
@@ -46,6 +41,7 @@ def dice_coef_loss(y_true, y_pred, smooth=1):
     union = K.sum(y_true, axis=[1,2,3]) + K.sum(y_pred, axis=[1,2,3])
     dice = K.mean((2. * intersection + smooth)/(union + smooth), axis=0)
     return 1 - dice
+
 
 class Unet_model:
     def __init__( self,
@@ -97,14 +93,17 @@ class Unet_model:
             if len( mask.shape ) == 2 or mask.shape[2] != self.IMG_CHANNELS:
                 raise BaseException("Invalid channel number in mask image " + id_ )
 
-            classes = []
-            for color, _ in self.CLASSES:
+            classes = np.zeros( ( self.NUM_CLASSES, self.IMG_HEIGHT, self.IMG_WIDTH ), dtype=np.uint8 )
+            for i, ( color, _ ) in enumerate( self.CLASSES ):
                 curr_class_mask = np.all( np.equal( mask, color * ones ), axis = -1 )
-                classes.append( curr_class_mask )
+                # plt.show()
+                # imshow( curr_class_mask )
+                classes[ i ] = curr_class_mask
             # Swap classes' axes from ( n, x, y ) to ( x, y, n )
             classes = np.swapaxes( classes, 0, 2 )
             classes = np.swapaxes( classes, 0, 1 )
             self.train_masks[ n ] = classes
+
         print( self.train_masks[ 0 ].shape )
             
         for n, id_ in tqdm(enumerate(test_ids), total=len(test_ids)):
@@ -195,7 +194,7 @@ class Unet_model:
 
         self.model = Model(inputs=[inputs], outputs=[outputs])
         #self.model.compile(optimizer='adam', loss=iou_coef_loss, metrics=[ iou_coef_loss, dice_coef_loss, "accuracy" ])
-        self.model.compile(optimizer='adam', loss=iou_coef_loss, metrics=[ iou_coef_loss, dice_coef_loss, "accuracy" ])
+        self.model.compile(optimizer='adam', loss="categorical_crossentropy", metrics=[ iou_coef_loss, dice_coef_loss, "accuracy" ] )
         self.model.summary()
         
     def fit_model( self, epochs = 50 ):
@@ -204,17 +203,25 @@ class Unet_model:
         # Fit model
         earlystopper = EarlyStopping( patience=5, verbose=1 )
         checkpointer = ModelCheckpoint( self.MODEL_PATH, verbose=1, save_best_only=True, monitor="val_iou_coef_loss" )
+        #checkpointer = ModelCheckpoint( self.MODEL_PATH, verbose=1, save_best_only=True )
         results = self.model.fit( self.train_images, self.train_masks, validation_split=self.VALIDATION_SPLIT, batch_size=16, epochs=epochs,
                                   callbacks=[earlystopper, checkpointer] )
 
 
-    # prediction has the shape n x y m
+    # prediction has the shape x y m
+    def _prediction_to_mask( self, prediction ):
+        mask = np.zeros( ( self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS ) )
+        idxs = np.argmax( prediction, axis=-1 )
+        for cn, ( k, _ ) in enumerate( self.CLASSES ):
+            mask[ idxs == cn ] = k
+        return mask
+
+
+    # predictions has the shape n x y m
     def _predictions_to_mask( self, predictions ):
         masks = np.zeros( predictions.shape[:3] + (self.IMG_CHANNELS,))
         for i, img in enumerate( predictions ):
-            idxs = np.argmax(img, axis=-1)
-            for cn, ( k, _ ) in enumerate( self.CLASSES ):
-                masks[ i ][ idxs == cn ] = k
+            masks[ i ] = self._prediction_to_mask( img )
         return masks
 
 
@@ -222,51 +229,48 @@ class Unet_model:
         print( "Predict on train, val and test")
 
         # Predict on train, val and test
-        preds_train = self.model.predict(self.train_images[:int(self.train_images.shape[0] * self.VALIDATION_SPLIT )], verbose=1)
         preds_val = self.model.predict(self.train_images[int(self.train_images.shape[0] * self.VALIDATION_SPLIT ):], verbose=1)
+        preds_train = self.model.predict(self.train_images[:int(self.train_images.shape[0] * self.VALIDATION_SPLIT )], verbose=1)
         preds_test = self.model.predict(self.test_images, verbose=1)
 
-        # Threshold predictions
+        len_train = len(preds_train)
+        len_val = len(preds_val)
+        len_test = len(preds_test)
+
         preds_train_t = self._predictions_to_mask(preds_train)
         preds_val_t = self._predictions_to_mask(preds_val)
         preds_test_t = self._predictions_to_mask(preds_test)
 
         # Create list of upsampled test masks
-        preds_test_upsampled = []
-        for i in range(len(preds_train_t)):
-            img = preds_train_t[i]
+        for i in range( len_test ):
+            img = preds_test_t[ i ]
             imsave( self.PREPROCESSED_TEST_PATH + "generated_masks/%04d.png" % i, img )
-            preds_test_upsampled.append(resize( img, 
-                                               (self.sizes_test[i][0], self.sizes_test[i][1]), 
-                                                mode='constant', preserve_range=True))
-
+            #resize( img, ( self.sizes_test[i][0], self.sizes_test[i][1]), mode='constant', preserve_range=True )
 
         print( "Perform a sanity check on some random training samples")
         # Perform a sanity check on some random training samples
-        ix = random.randint(0, len(preds_train_t) - 1 )
-        imshow(self.train_images[ix])
+        ix = random.randint(0, len_train - 1 )
+        imshow( self.train_images[ ix ] )
         plt.show()
-        imshow(self.train_masks[ix])
+        imshow( self._prediction_to_mask( self.train_masks[ ix ] ) )
         plt.show()
-        imshow(preds_train_t[ix])
+        imshow( preds_train_t[ ix ] )
         plt.show()
 
-        
         print( "Perform a sanity check on some random validation samples")
         # Perform a sanity check on some random validation samples
-        ix = random.randint(0, len(preds_val_t) - 1 )
-        imshow(self.train_images[int(self.train_images.shape[0]*0.9):][ix])
+        ix = random.randint(0, len_val - 1 )
+        imshow( self.train_images[ len_train + ix ] )
         plt.show()
-        imshow(self.train_masks[int(self.train_masks.shape[0]*0.9):][ix])
+        imshow( self._prediction_to_mask( self.train_masks[ len_train + ix ]) )
         plt.show()
-        imshow(preds_val_t[ix])
+        imshow( preds_val_t[ ix ] )
         plt.show()
-        
-        
+
         print( "Perform a sanity check on some random testing samples")
         # Perform a sanity check on some random testing samples
-        ix = random.randint(0, len(preds_test_t) - 1 )
-        imshow(self.test_images[ix])
+        ix = random.randint(0, len_test - 1 )
+        imshow( self.test_images[ ix ] )
         plt.show()
-        imshow(preds_test_upsampled[ix])
+        imshow( preds_test_t[ ix ] )
         plt.show()

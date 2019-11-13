@@ -24,11 +24,11 @@ model = Unet_model( IMG_WIDTH,
                     TEST_PATH,
                     PREPROCESSED_TRAIN_PATH,
                     PREPROCESSED_TEST_PATH,
-                    [ ( ( 255, 255, 255 ), "Cell" ) ] )
+                    [ ( ( 0, 0, 0 ), "Bg" ), ( ( 255, 255, 255 ), "Cell" ) ] )
 model.load_images()
 model.create_model()
 #model.load_model()
-model.fit_model( 1 )
+model.fit_model( 5 )
 model.predict_from_model()
 model.save_model()
 
