@@ -6,6 +6,7 @@ import numpy as np
 from tqdm import tqdm
 from skimage.io import imread, imsave
 from skimage.transform import resize
+from skimage.color import gray2rgb
 
 warnings.filterwarnings('ignore', category=UserWarning, module='skimage')
 
@@ -27,25 +28,31 @@ class OneClassPreprocessor:
         train_ids = next(os.walk(self.TRAIN_PATH))[1]
         test_ids = next(os.walk(self.TEST_PATH))[1]
         
-        print('Getting and resizing training images ... ')
+        print('Getting and resizing training images ... ', flush=True)
         for n, id_ in tqdm(enumerate(train_ids), total=len(train_ids)):
             path = self.TRAIN_PATH + id_
             img = imread(path + '/images/' + id_ + '.png')[:,:,:self.IMG_CHANNELS]
             img = resize(img, (self.IMG_HEIGHT, self.IMG_WIDTH), mode='constant', preserve_range=True)
+            if len( img.shape ) == 2 or ( self.IMG_CHANNELS == 3 and img.shape[2] != self.IMG_CHANNELS ):
+                img = gray2rgb( img )
             img = img.astype(np.uint8)
             imsave( self.PREPROCESSED_TRAIN_PATH + "images/%04d.png" % n, img )
             
-            mask = np.zeros((self.IMG_HEIGHT, self.IMG_WIDTH, 1), dtype=np.bool)
+            mask = np.zeros((self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS), dtype=np.bool)
             for mask_file in next(os.walk(path + '/masks/'))[2]:
                 mask_ = imread(path + '/masks/' + mask_file)
-                mask_ = np.expand_dims(resize(mask_, (self.IMG_HEIGHT, self.IMG_WIDTH), mode='constant', preserve_range=True), axis=-1)
+                mask_ = resize(mask_, (self.IMG_HEIGHT, self.IMG_WIDTH), mode='constant', preserve_range=True, order = 0, anti_aliasing = False )
+
+                if len( mask_.shape ) == 2 or ( self.IMG_CHANNELS == 3 and mask_.shape[2] != self.IMG_CHANNELS ):
+                    mask_ = gray2rgb( mask_ )
                 mask = np.maximum(mask, mask_)
             mask = mask.astype(np.uint8)
+
             imsave( self.PREPROCESSED_TRAIN_PATH + "masks/%04d.png" % n, mask )
 
         # Get and resize test images
         test_sizes_string = ""
-        print('Getting and resizing test images ... ')
+        print('Getting and resizing test images ... ', flush=True)
 
         for n, id_ in tqdm(enumerate(test_ids), total=len(test_ids)):
             path = self.TEST_PATH + id_
@@ -54,6 +61,8 @@ class OneClassPreprocessor:
             test_sizes_string += "%d %d\n" % ( img.shape[0], img.shape[1] );
             
             img = resize(img, (self.IMG_HEIGHT, self.IMG_WIDTH), mode='constant', preserve_range=True)
+            if len( img.shape ) == 2 or ( self.IMG_CHANNELS == 3 and img.shape[2] != self.IMG_CHANNELS ):
+                img = gray2rgb( img )
             img = img.astype(np.uint8)
             imsave( self.PREPROCESSED_TEST_PATH + "images/%04d.png" % n, img )
         

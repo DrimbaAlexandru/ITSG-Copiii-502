@@ -17,10 +17,20 @@ if needs_preprocess:
     preprocessor = OneClassPreprocessor( IMG_WIDTH, IMG_HEIGHT, IMG_CHANNELS, TRAIN_PATH, TEST_PATH, PREPROCESSED_TRAIN_PATH, PREPROCESSED_TEST_PATH )
     preprocessor.preprocess()
     
-model = Unet_model( IMG_WIDTH, IMG_HEIGHT, IMG_CHANNELS, TRAIN_PATH, TEST_PATH, PREPROCESSED_TRAIN_PATH, PREPROCESSED_TEST_PATH )
+model = Unet_model( IMG_WIDTH,
+                    IMG_HEIGHT,
+                    IMG_CHANNELS,
+                    TRAIN_PATH,
+                    TEST_PATH,
+                    PREPROCESSED_TRAIN_PATH,
+                    PREPROCESSED_TEST_PATH,
+                    [ ( ( 255, 255, 255 ), "Cell" ) ] )
 model.load_images()
-#model.create_model()
-model.load_model()
-#model.fit_model( 10 )
+model.create_model()
+#model.load_model()
+model.fit_model( 1 )
 model.predict_from_model()
 model.save_model()
+
+# Adaugare metrici
+# Conferinta imogen in 8.11, de la 9 la 11
