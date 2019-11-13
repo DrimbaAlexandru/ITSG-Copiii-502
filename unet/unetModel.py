@@ -29,7 +29,6 @@ np.random.seed = seed
 # m - number of images
 # x, y - image dimensions
 # n - number of classes
-
 def iou_coef_loss(y_true, y_pred, smooth=1):
     intersection = K.sum(K.abs(y_true * y_pred), axis=[1,2,3])
     union = K.sum(y_true,[1,2,3])+K.sum(y_pred,[1,2,3])-intersection
@@ -116,24 +115,14 @@ class Unet_model:
             self.sizes_test.append( ( int( line.split(' ')[0] ), int( line.split(' ')[1] ) ) )    
         file_sizes.close()
 
-        # # Check if training data looks all right
-        # ix = random.randint( 0, len(train_ids) - 1 )
-        # imshow(self.train_images[ix])
-        # plt.show()
-        # imshow(np.squeeze(self.train_masks[ix]))
-        # plt.show()
-
-
     def save_model( self ):
         # Save the model
         self.model.save( self.MODEL_PATH )
-
 
     def load_model( self ):
         self.model = load_model( self.MODEL_PATH, custom_objects={'iou_coef_loss': iou_coef_loss,
                                                                   'dice_coef_loss': dice_coef_loss,
                                                                   'metrics': [ iou_coef_loss, dice_coef_loss, "accuracy" ]} )
-
 
     def create_model( self ):
         print( "Build U-Net model" )
@@ -207,7 +196,6 @@ class Unet_model:
         results = self.model.fit( self.train_images, self.train_masks, validation_split=self.VALIDATION_SPLIT, batch_size=16, epochs=epochs,
                                   callbacks=[earlystopper, checkpointer] )
 
-
     # prediction has the shape x y m
     def _prediction_to_mask( self, prediction ):
         mask = np.zeros( ( self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS ) )
@@ -219,11 +207,10 @@ class Unet_model:
 
     # predictions has the shape n x y m
     def _predictions_to_mask( self, predictions ):
-        masks = np.zeros( predictions.shape[:3] + (self.IMG_CHANNELS,))
+        masks = np.zeros( predictions.shape[:3] + (self.IMG_CHANNELS,), dtype=np.uint8 )
         for i, img in enumerate( predictions ):
             masks[ i ] = self._prediction_to_mask( img )
         return masks
-
 
     def predict_from_model( self ):
         print( "Predict on train, val and test")

@@ -1,4 +1,5 @@
 from preprocessOneClass import OneClassPreprocessor
+from preprocessNifti import NIfTIPreprocessor
 from unetModel import Unet_model
 
 
@@ -6,15 +7,15 @@ from unetModel import Unet_model
 IMG_WIDTH = 128
 IMG_HEIGHT = 128
 IMG_CHANNELS = 3
-TRAIN_PATH = './input/stage1_train/'
-TEST_PATH = './input/stage1_test/'
-PREPROCESSED_TRAIN_PATH = "./input/training/"
-PREPROCESSED_TEST_PATH = "./input/testing/"
+TRAIN_PATH = './input/NIfTI/NIfTIs/training/'
+TEST_PATH = './input/NIfTI/NIfTIs/testing/'
+PREPROCESSED_TRAIN_PATH = "./input/NIfTI/training/"
+PREPROCESSED_TEST_PATH = "./input/NIfTI/testing/"
 
-needs_preprocess = False
+needs_preprocess = True
 
 if needs_preprocess:
-    preprocessor = OneClassPreprocessor( IMG_WIDTH, IMG_HEIGHT, IMG_CHANNELS, TRAIN_PATH, TEST_PATH, PREPROCESSED_TRAIN_PATH, PREPROCESSED_TEST_PATH )
+    preprocessor = NIfTIPreprocessor( IMG_WIDTH, IMG_HEIGHT, IMG_CHANNELS, TRAIN_PATH, TEST_PATH, PREPROCESSED_TRAIN_PATH, PREPROCESSED_TEST_PATH )
     preprocessor.preprocess()
     
 model = Unet_model( IMG_WIDTH,
@@ -24,7 +25,7 @@ model = Unet_model( IMG_WIDTH,
                     TEST_PATH,
                     PREPROCESSED_TRAIN_PATH,
                     PREPROCESSED_TEST_PATH,
-                    [ ( ( 0, 0, 0 ), "Bg" ), ( ( 255, 255, 255 ), "Cell" ) ] )
+                    [ ( ( 0, 0, 0 ), "Bg" ), ( ( 127, 127, 127 ), "Ventricular Myocardum" ), ( ( 255, 255, 255 ), "Blood Pool" ) ] )
 model.load_images()
 model.create_model()
 #model.load_model()
