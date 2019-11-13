@@ -109,11 +109,11 @@ class Unet_model:
             img = imread( self.PREPROCESSED_TEST_PATH + "images/" + id_ )[:,:,:self.IMG_CHANNELS]   
             self.test_images[n] = img
             
-        self.sizes_test = []
-        file_sizes = open( self.PREPROCESSED_TEST_PATH + "sizes.txt", "r" )
-        for line in file_sizes.readlines():
-            self.sizes_test.append( ( int( line.split(' ')[0] ), int( line.split(' ')[1] ) ) )    
-        file_sizes.close()
+        # self.sizes_test = []
+        # file_sizes = open( self.PREPROCESSED_TEST_PATH + "sizes.txt", "r" )
+        # for line in file_sizes.readlines():
+        #     self.sizes_test.append( ( int( line.split(' ')[0] ), int( line.split(' ')[1] ) ) )
+        # file_sizes.close()
 
     def save_model( self ):
         # Save the model
@@ -198,7 +198,7 @@ class Unet_model:
 
     # prediction has the shape x y m
     def _prediction_to_mask( self, prediction ):
-        mask = np.zeros( ( self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS ) )
+        mask = np.zeros( ( self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS ), dtype=np.uint8 )
         idxs = np.argmax( prediction, axis=-1 )
         for cn, ( k, _ ) in enumerate( self.CLASSES ):
             mask[ idxs == cn ] = k

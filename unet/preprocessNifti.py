@@ -27,20 +27,19 @@ class NIfTIPreprocessor:
         # Returns a list of image file names in the training and testing paths
         # Label files are expected to be image_name -label
         train_image_ids = next(os.walk(self.TRAIN_PATH + 'images/'))[2]
-        train_labels_ids = next(os.walk(self.TRAIN_PATH + 'labels/'))[2]
+        test_image_ids = next(os.walk(self.TEST_PATH + 'images/'))[2]
 
         print('Getting and resizing training images and labels... ')
         for n, id_ in enumerate(train_image_ids):
             # Process images
-            print( "Exporting image %d/%d" % ( n, len(train_image_ids) ) )
+            print( "Exporting image %d/%d" % ( n+1, len(train_image_ids) ) )
 
             proxy_img = nib.load( self.TRAIN_PATH + 'images/' + id_)
             canonical_img = nib.as_closest_canonical(proxy_img)
             
             image_data = canonical_img.get_fdata()
             min_max = ( image_data.min(), image_data.max() )
-            print( image_data.shape )
-           
+
             numslices0 = image_data.shape[ 0 ]
             numslices1 = image_data.shape[ 1 ]
             numslices2 = image_data.shape[ 2 ]
@@ -83,8 +82,6 @@ class NIfTIPreprocessor:
             
             image_data = canonical_img.get_fdata()
             min_max = ( image_data.min(), image_data.max() )
-
-            print( image_data.shape )
            
             numslices0 = image_data.shape[ 0 ]
             numslices1 = image_data.shape[ 1 ]
@@ -102,7 +99,7 @@ class NIfTIPreprocessor:
                 img = img.astype(np.uint8)
                 imsave( self.PREPROCESSED_TRAIN_PATH + "masks/AXIS0-%s-%04d.png" % (name, i), img )
 
-            for j in tqdm(range(1,numslices1)):
+            for j in tqdm(range(numslices1)):
                 img = image_data[:,j,:]
                 img = np.flip( img.T, axis = 0 )
                 if len( img.shape ) == 2 or ( self.IMG_CHANNELS == 3 and img.shape[2] != self.IMG_CHANNELS ):
@@ -112,7 +109,7 @@ class NIfTIPreprocessor:
                 img = img.astype(np.uint8)
                 imsave( self.PREPROCESSED_TRAIN_PATH + "masks/AXIS1-%s-%04d.png" % (name, j), img )
 
-            for k in tqdm(range(1,numslices2)):
+            for k in tqdm(range(numslices2)):
                 img = image_data[:,:,k]
                 img = np.flip( img.T, axis = 0 )
                 if len( img.shape ) == 2 or ( self.IMG_CHANNELS == 3 and img.shape[2] != self.IMG_CHANNELS ):
@@ -121,3 +118,51 @@ class NIfTIPreprocessor:
                 img = img * ( 255 / min_max[1] )
                 img = img.astype(np.uint8)
                 imsave( self.PREPROCESSED_TRAIN_PATH + "masks/AXIS2-%s-%04d.png" % (name, k), img )
+
+        print('Getting and resizing testing images... ')
+        for n, id_ in enumerate(test_image_ids):
+            # Process images
+            print( "Exporting image %d/%d" % ( n+1, len(test_image_ids) ) )
+
+            proxy_img = nib.load( self.TEST_PATH + 'images/' + id_)
+            canonical_img = nib.as_closest_canonical(proxy_img)
+
+            image_data = canonical_img.get_fdata()
+            min_max = ( image_data.min(), image_data.max() )
+            print( image_data.shape )
+
+            numslices0 = image_data.shape[ 0 ]
+            numslices1 = image_data.shape[ 1 ]
+            numslices2 = image_data.shape[ 2 ]
+
+            name = id_.split('.')[0]
+
+            for i in tqdm( range(numslices0) ):
+                img = image_data[i,:,:]
+                img = np.flip( img.T, axis = 0 )
+                if len( img.shape ) == 2 or ( self.IMG_CHANNELS == 3 and img.shape[2] != self.IMG_CHANNELS ):
+                    img = gray2rgb( img )
+                img = resize(img, (self.IMG_HEIGHT, self.IMG_WIDTH), mode='constant', preserve_range=True )
+                img = img * ( 255 / min_max[1] )
+                img = img.astype(np.uint8)
+                imsave( self.PREPROCESSED_TEST_PATH + "images/AXIS0-%s-%04d.png" % (name, i), img )
+
+            for j in tqdm(range(numslices1)):
+                img = image_data[:,j,:]
+                img = np.flip( img.T, axis = 0 )
+                if len( img.shape ) == 2 or ( self.IMG_CHANNELS == 3 and img.shape[2] != self.IMG_CHANNELS ):
+                    img = gray2rgb( img )
+                img = resize(img, (self.IMG_HEIGHT, self.IMG_WIDTH), mode='constant', preserve_range=True)
+                img = img * ( 255 / min_max[1] )
+                img = img.astype(np.uint8)
+                imsave( self.PREPROCESSED_TEST_PATH + "images/AXIS1-%s-%04d.png" % (name, j), img )
+
+            for k in tqdm(range(numslices2)):
+                img = image_data[:,:,k]
+                img = np.flip( img.T, axis = 0 )
+                if len( img.shape ) == 2 or ( self.IMG_CHANNELS == 3 and img.shape[2] != self.IMG_CHANNELS ):
+                    img = gray2rgb( img )
+                img = resize(img, (self.IMG_HEIGHT, self.IMG_WIDTH), mode='constant', preserve_range=True)
+                img = img * ( 255 / min_max[1] )
+                img = img.astype(np.uint8)
+                imsave( self.PREPROCESSED_TEST_PATH + "images/AXIS2-%s-%04d.png" % (name, k), img )
