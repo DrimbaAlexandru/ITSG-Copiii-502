@@ -17,7 +17,7 @@ from keras.layers.core import Dropout, Lambda
 from keras.layers.convolutional import Conv2D, Conv2DTranspose
 from keras.layers.pooling import MaxPooling2D
 from keras.layers.merge import concatenate
-from keras.callbacks import EarlyStopping, ModelCheckpoint
+from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
 from keras import backend as K
 
 warnings.filterwarnings('ignore', category=UserWarning, module='skimage')
@@ -190,11 +190,16 @@ class Unet_model:
         print( "Fit model" )
         
         # Fit model
-        earlystopper = EarlyStopping( patience=5, verbose=1 )
-        checkpointer = ModelCheckpoint( self.MODEL_PATH, verbose=1, save_best_only=True, monitor="val_iou_coef_loss" )
-        #checkpointer = ModelCheckpoint( self.MODEL_PATH, verbose=1, save_best_only=True )
-        results = self.model.fit( self.train_images, self.train_masks, validation_split=self.VALIDATION_SPLIT, batch_size=16, epochs=epochs,
-                                  callbacks=[earlystopper, checkpointer] )
+        log_dir = "logs\\fit\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        os.mkdir(log_dir)
+        tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=1)
+        earlystopper = EarlyStopping(patience=5, verbose=1)
+        checkpointer = ModelCheckpoint(self.MODEL_PATH, verbose=1, save_best_only=True, monitor="val_iou_coef_loss")
+        # checkpointer = ModelCheckpoint( self.MODEL_PATH, verbose=1, save_best_only=True )
+
+        self.model.fit(self.train_images, self.train_masks, validation_split=self.VALIDATION_SPLIT,
+                       batch_size=16, epochs=epochs,
+                       callbacks=[earlystopper, checkpointer, tensorboard])
 
     # prediction has the shape x y m
     def _prediction_to_mask( self, prediction ):
