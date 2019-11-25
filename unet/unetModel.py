@@ -1,7 +1,7 @@
 import os
-import sys
 import random
 import warnings
+import datetime
 
 import numpy as np
 
@@ -29,18 +29,23 @@ np.random.seed = seed
 # m - number of images
 # x, y - image dimensions
 # n - number of classes
-def iou_coef_loss(y_true, y_pred, smooth=1):
+def iou_coef(y_true, y_pred, smooth=1):
     intersection = K.sum(K.abs(y_true * y_pred), axis=[1,2,3])
     union = K.sum(y_true,[1,2,3])+K.sum(y_pred,[1,2,3])-intersection
     iou = K.mean((intersection + smooth) / (union + smooth), axis=0)
-    return 1 - iou
+    return iou
   
-def dice_coef_loss(y_true, y_pred, smooth=1):
+def dice_coef(y_true, y_pred, smooth=1):
     intersection = K.sum(y_true * y_pred, axis=[1,2,3])
     union = K.sum(y_true, axis=[1,2,3]) + K.sum(y_pred, axis=[1,2,3])
     dice = K.mean((2. * intersection + smooth)/(union + smooth), axis=0)
-    return 1 - dice
+    return dice
 
+def iou_coef_loss(yt,yp,smooth=1):
+    return 1 - iou_coef(yt,yp,smooth)
+
+def dice_coef_loss(yt,yp,smooth=1):
+    return 1 - dice_coef(yt,yp,smooth)
 
 class Unet_model:
     def __init__( self,
@@ -51,6 +56,7 @@ class Unet_model:
                   test_path_in,
                   train_path_out,
                   test_path_out,
+                  test_data_labeled,
                   classes = [ ( ( 0, 0, 0 ), "Background" ), ( ( 255, 255, 255 ), "Class 1" ) ] ):
                  
         self.IMG_WIDTH = width
@@ -60,6 +66,7 @@ class Unet_model:
         self.TEST_PATH = test_path_in
         self.CLASSES = classes
         self.NUM_CLASSES = len( classes )
+        self.IS_TEST_DATA_LABELED = test_data_labeled
 
         self.PREPROCESSED_TRAIN_PATH = train_path_out
         self.PREPROCESSED_TEST_PATH = test_path_out
@@ -69,17 +76,15 @@ class Unet_model:
         self.VALIDATION_SPLIT = 0.1
 
     def load_images( self ):
-        print( "Read test and traing images from the disk" )
+        print( "Read test and training images from the disk" )
     
-        # Get train and test IDs
-        # Returns a list of file names in the training and testing paths
+        # Get train IDs
+        # Returns a list of file names in the training path
         train_ids = next( os.walk( self.PREPROCESSED_TRAIN_PATH + "images/" ) )[2]
-        test_ids = next( os.walk( self.PREPROCESSED_TEST_PATH + "images/" ) )[2]
 
         # Get and resize train images and masks
         self.train_images = np.zeros( ( len( train_ids ), self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS ), dtype=np.uint8)
         self.train_masks  = np.zeros( ( len( train_ids ), self.IMG_HEIGHT, self.IMG_WIDTH, self.NUM_CLASSES ), dtype=np.bool)
-        self.test_images  = np.zeros( ( len( test_ids ),  self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS ), dtype=np.uint8)
 
         ones = np.ones( ( self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS ), dtype=np.uint8 )
         for n, id_ in tqdm(enumerate(train_ids), total=len(train_ids)):
@@ -103,26 +108,18 @@ class Unet_model:
             classes = np.swapaxes( classes, 0, 1 )
             self.train_masks[ n ] = classes
 
-        print( self.train_masks[ 0 ].shape )
-            
-        for n, id_ in tqdm(enumerate(test_ids), total=len(test_ids)):
-            img = imread( self.PREPROCESSED_TEST_PATH + "images/" + id_ )[:,:,:self.IMG_CHANNELS]   
-            self.test_images[n] = img
-            
-        # self.sizes_test = []
-        # file_sizes = open( self.PREPROCESSED_TEST_PATH + "sizes.txt", "r" )
-        # for line in file_sizes.readlines():
-        #     self.sizes_test.append( ( int( line.split(' ')[0] ), int( line.split(' ')[1] ) ) )
-        # file_sizes.close()
 
     def save_model( self ):
         # Save the model
         self.model.save( self.MODEL_PATH )
 
+
     def load_model( self ):
         self.model = load_model( self.MODEL_PATH, custom_objects={'iou_coef_loss': iou_coef_loss,
                                                                   'dice_coef_loss': dice_coef_loss,
-                                                                  'metrics': [ iou_coef_loss, dice_coef_loss, "accuracy" ]} )
+                                                                  'iou_coef': iou_coef,
+                                                                  'dice_coef': dice_coef,
+                                                                  'metrics': [ iou_coef, dice_coef, iou_coef_loss, dice_coef_loss, "accuracy" ]} )
 
     def create_model( self ):
         print( "Build U-Net model" )
@@ -183,7 +180,7 @@ class Unet_model:
 
         self.model = Model(inputs=[inputs], outputs=[outputs])
         #self.model.compile(optimizer='adam', loss=iou_coef_loss, metrics=[ iou_coef_loss, dice_coef_loss, "accuracy" ])
-        self.model.compile(optimizer='adam', loss="categorical_crossentropy", metrics=[ iou_coef_loss, dice_coef_loss, "accuracy" ] )
+        self.model.compile(optimizer='adam', loss="categorical_crossentropy", metrics=[ iou_coef, dice_coef, iou_coef_loss, dice_coef_loss, "accuracy" ] )
         self.model.summary()
         
     def fit_model( self, epochs = 50 ):
@@ -191,7 +188,7 @@ class Unet_model:
         
         # Fit model
         log_dir = "logs\\fit\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        os.mkdir(log_dir)
+        os.makedirs(log_dir)
         tensorboard = TensorBoard(log_dir=log_dir, histogram_freq=1)
         earlystopper = EarlyStopping(patience=5, verbose=1)
         checkpointer = ModelCheckpoint(self.MODEL_PATH, verbose=1, save_best_only=True, monitor="val_iou_coef_loss")
@@ -217,25 +214,48 @@ class Unet_model:
             masks[ i ] = self._prediction_to_mask( img )
         return masks
 
+    def predict_one(self, path_in, path_out=None ):
+        input_images  = np.zeros( ( 1,  self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS ), dtype=np.uint8)
+        input_images[0] = imread( path_in )[:,:,:self.IMG_CHANNELS]
+        preds = self.model.predict(input_images, verbose=0)
+        preds_mask = self._predictions_to_mask(preds)
+        if path_out is not None:
+            imsave(path_out, preds_mask[0])
+
+        return preds_mask
+
+    def predict_all(self, base_folder, write_output=True):
+        # Get IDs
+        # Returns a list of file names in the given path
+        ids = next( os.walk( base_folder + "images/" ) )[2]
+
+        pred_masks = np.zeros( ( len( ids ), self.IMG_HEIGHT, self.IMG_WIDTH, self.NUM_CLASSES ), dtype=np.bool)
+
+        if write_output:
+            os.makedirs(base_folder + "masks_generated/",exist_ok=True)
+
+        for n, id_ in tqdm(enumerate(ids), total=len(ids)):
+            pred_masks[n] = self.predict_one(base_folder + "images/" + id_,
+                                             base_folder + "masks_generated/" + id_ if write_output else None )
+        return pred_masks
+
     def predict_from_model( self ):
         print( "Predict on train, val and test")
 
         # Predict on train, val and test
-        preds_val = self.model.predict(self.train_images[int(self.train_images.shape[0] * self.VALIDATION_SPLIT ):], verbose=1)
-        preds_train = self.model.predict(self.train_images[:int(self.train_images.shape[0] * self.VALIDATION_SPLIT )], verbose=1)
-        preds_test = self.model.predict(self.test_images, verbose=1)
+        preds_training = self.predict_all(self.PREPROCESSED_TRAIN_PATH,False)
+        preds_testing = self.predict_all(self.PREPROCESSED_TEST_PATH,True)
+
+        preds_val = preds_training[int(self.train_images.shape[0] * self.VALIDATION_SPLIT ):]
+        preds_train = preds_training[:int(self.train_images.shape[0] * self.VALIDATION_SPLIT )]
 
         len_train = len(preds_train)
         len_val = len(preds_val)
-        len_test = len(preds_test)
-
-        preds_train_t = self._predictions_to_mask(preds_train)
-        preds_val_t = self._predictions_to_mask(preds_val)
-        preds_test_t = self._predictions_to_mask(preds_test)
+        len_test = len(preds_testing)
 
         # Create list of upsampled test masks
         for i in range( len_test ):
-            img = preds_test_t[ i ]
+            img = preds_testing[ i ]
             imsave( self.PREPROCESSED_TEST_PATH + "generated_masks/%04d.png" % i, img )
             #resize( img, ( self.sizes_test[i][0], self.sizes_test[i][1]), mode='constant', preserve_range=True )
 
@@ -246,7 +266,7 @@ class Unet_model:
         plt.show()
         imshow( self._prediction_to_mask( self.train_masks[ ix ] ) )
         plt.show()
-        imshow( preds_train_t[ ix ] )
+        imshow( preds_train[ ix ] )
         plt.show()
 
         print( "Perform a sanity check on some random validation samples")
@@ -256,7 +276,7 @@ class Unet_model:
         plt.show()
         imshow( self._prediction_to_mask( self.train_masks[ len_train + ix ]) )
         plt.show()
-        imshow( preds_val_t[ ix ] )
+        imshow( preds_val[ ix ] )
         plt.show()
 
         print( "Perform a sanity check on some random testing samples")
@@ -264,5 +284,5 @@ class Unet_model:
         ix = random.randint(0, len_test - 1 )
         imshow( self.test_images[ ix ] )
         plt.show()
-        imshow( preds_test_t[ ix ] )
+        imshow( preds_testing[ ix ] )
         plt.show()
