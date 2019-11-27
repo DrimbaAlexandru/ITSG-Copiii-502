@@ -1,9 +1,14 @@
-import tkinter as tk
+import os
 
+import tkinter as tk
+import nibabel as nib
 from niiPlot import MRI_plot 
+from unet.unetModel import Unet_model
+
 
 class App:
-    
+    IMG_CHANNELS = 3
+    RESULTS_PATH = "./output/"
     #Class variables
     root = None
     image_path = ""
@@ -12,7 +17,8 @@ class App:
     
     _mask_enabled_var = None
     _slider = None
-    
+    model = None
+
     #Procedures
     def __init__(self, master):       
         print( "init")
@@ -26,7 +32,7 @@ class App:
         self._menu_file = [( "Open NIfTI image...",         self._on_load_image         ), 
                            ( "Open NIfTI image labels...",  self._on_load_labels        ), 
                            ( "Separator",                   None                        ), 
-                           ( "Generate labels...",          self._not_yet_implemented   ),
+                           ( "Generate labels...",          self._generate_mask   ),
                            ( "Separator",                   None                        ), 
                            ( "Exit",                        self.root.quit              )]
 
@@ -43,7 +49,15 @@ class App:
         self._mask_enabled_var.set( 1 )
         c = tk.Checkbutton( self.root, text="Show image masks", variable=self._mask_enabled_var, command=self._on_dispay_mask_changed )
         c.pack()
-        
+        self.model = Unet_model( 3,
+                                 None,
+                                 None,
+                                 None,
+                                 None,
+                                 None,
+                                 [ ( ( 0, 0, 0 ), "Background" ), ( ( 127, 127, 127 ), "Ventricular Myocardum" ), ( ( 255, 255, 255 ), "Blood Pool" ) ] )
+        self.model.load_model()
+
         # self._slider = Scale(self.root, from_=0, to=1, orient=HORIZONTAL, command = self._on_slider_moved)
         # self._slider.pack()
 
@@ -65,10 +79,37 @@ class App:
         
     def _on_load_image( self ):
         self.image_path = tk.filedialog.askopenfilename(parent=self.root, initialdir = "/",title = "Select image file",filetypes = (("NIfTI files","*.nii.gz;*.nii"),("all files","*.*")))
+        print(self.image_path)
         self.label_path = ""
         if( self.image_path != "" ):
             self._display_nifti_image()
-        
+
+    def _generate_mask( self ):
+        print("Generate mask");
+
+        if self.image_path == "" :
+            return
+
+        proxy_img = nib.load( self.image_path )
+        canonical_img = nib.as_closest_canonical(proxy_img)
+        image_data = canonical_img.get_fdata()
+
+        generated_mask = self.model.predict_volume( image_data )
+
+        name = 'result.nii.gz'
+        os.makedirs(self.RESULTS_PATH,exist_ok=True)
+
+        new_header = proxy_img.header.copy()
+        new_img = nib.nifti1.Nifti1Image(generated_mask, None, header=new_header)
+        print(generated_mask.ndim)
+        print(generated_mask.shape)
+        print(generated_mask.size)
+
+        img = nib.Nifti1Image(generated_mask, canonical_img.affine)
+        img.to_filename(self.RESULTS_PATH + name)
+        nib.save(img, self.RESULTS_PATH + name)
+
+
     def _on_load_labels( self ):
         self.label_path = tk.filedialog.askopenfilename(parent=self.root, initialdir = "/",title = "Select image mask",filetypes = (("NIfTI files","*.nii.gz;*.nii"),("all files","*.*")))
         if( self.label_path != "" ):
