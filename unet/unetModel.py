@@ -71,7 +71,7 @@ class Unet_model:
         self.PREPROCESSED_TRAIN_PATH = train_path_out
         self.PREPROCESSED_TEST_PATH = test_path_out
         
-        self.MODEL_PATH = "my_model.h5"
+        self.MODEL_PATH = "./unet/my_model.h5"
         self.LOG_DIR = "logs\\fit\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         os.makedirs(self.LOG_DIR)
 
@@ -254,6 +254,13 @@ class Unet_model:
         if path_out is not None:
             imsave(path_out, preds_mask[0])
 
+        return preds_mask[0]
+
+    def predict_one_from_memory( self, img_in ):
+        input_images  = np.zeros( ( 1,  self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS ), dtype=np.uint8)
+        input_images[0] = img_in[:,:,:self.IMG_CHANNELS]
+        preds = self.model.predict(input_images, verbose=0)
+        preds_mask = self._predictions_to_mask(preds)
         return preds_mask[0]
 
     def predict_all(self, base_folder, write_output=True):
