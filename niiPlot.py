@@ -77,7 +77,7 @@ class MRI_plot:
             self.is_window_showing = True
             
     def set_mask_transparency( self, newTransparency ):
-        _mask_transparency = newTransparency
+        self._mask_transparency = newTransparency
         self._display_current_frame()
         
     def set_mask_showing( self, showing ):

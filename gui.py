@@ -1,6 +1,7 @@
 import tkinter as tk
 
 from niiPlot import MRI_plot 
+from tkinter import *
 
 class App:
     
@@ -43,9 +44,8 @@ class App:
         self._mask_enabled_var.set( 1 )
         c = tk.Checkbutton( self.root, text="Show image masks", variable=self._mask_enabled_var, command=self._on_dispay_mask_changed )
         c.pack()
-        
-        # self._slider = Scale(self.root, from_=0, to=1, orient=HORIZONTAL, command = self._on_slider_moved)
-        # self._slider.pack()
+        self._slider = Scale(self.root, from_=0, to=1, orient=HORIZONTAL, resolution=0.05, command = self._on_slider_moved)
+        self._slider.pack()
 
     def _init_menus( self ):
         # create a toplevel menu
