@@ -18,11 +18,6 @@ if needs_preprocess:
     preprocessor = NIfTIPreprocessor( IMG_WIDTH, IMG_HEIGHT, IMG_CHANNELS, TRAIN_PATH, TEST_PATH, PREPROCESSED_TRAIN_PATH, PREPROCESSED_TEST_PATH, TEST_DATA_LABELED )
     preprocessor.preprocess()
 
-proxy_img = nib.load("D:/git/ITSG-Copiii-502/unet/input/NIfTI/NIfTIs/training/images/training_axial_crop_pat4.nii.gz")
-canonical_img = nib.as_closest_canonical(proxy_img)
-
-image_data = canonical_img.get_fdata()
-
 model = Unet_model( IMG_CHANNELS,
                     TRAIN_PATH,
                     TEST_PATH,
@@ -33,12 +28,12 @@ model = Unet_model( IMG_CHANNELS,
 #model.load_training_images()
 #model.load_testing_images()
 #model.create_model()
-model.load_model()
+#model.load_model()
 #model.fit_model( 10 )
 #model.save_model()
 #model.predict_from_model()
 #model.evaluate_model()
-result = model.predict_volume( image_data )
+#result = model.predict_volume( image_data )
 
 # Adaugare metrici
 # Conferinta imogen in 8.11, de la 9 la 11

@@ -69,7 +69,7 @@ class Unet_model:
         self.PREPROCESSED_TRAIN_PATH = train_path_out
         self.PREPROCESSED_TEST_PATH = test_path_out
         
-        self.MODEL_PATH = "./my_model.h5"
+        self.MODEL_PATH = "./unet/my_model.h5"
         self.LOG_DIR = "logs\\fit\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         os.makedirs(self.LOG_DIR)
 
