@@ -32,7 +32,7 @@ class App:
         self._menu_file = [( "Open NIfTI image...",         self._on_load_image         ), 
                            ( "Open NIfTI image labels...",  self._on_load_labels        ), 
                            ( "Separator",                   None                        ), 
-                           ( "Generate labels...",          self._generate_mask   ),
+                           ( "Generate labels...",          self._generate_mask         ),
                            ( "Separator",                   None                        ), 
                            ( "Exit",                        self.root.quit              )]
 
@@ -49,6 +49,12 @@ class App:
         self._mask_enabled_var.set( 1 )
         c = tk.Checkbutton( self.root, text="Show image masks", variable=self._mask_enabled_var, command=self._on_dispay_mask_changed )
         c.pack()
+        
+        self._init_model()
+        # self._slider = Scale(self.root, from_=0, to=1, orient=HORIZONTAL, command = self._on_slider_moved)
+        # self._slider.pack()
+
+    def _init_model( self ):
         self.model = Unet_model( 3,
                                  None,
                                  None,
@@ -57,9 +63,6 @@ class App:
                                  None,
                                  [ ( ( 0, 0, 0 ), "Background" ), ( ( 127, 127, 127 ), "Ventricular Myocardum" ), ( ( 255, 255, 255 ), "Blood Pool" ) ] )
         self.model.load_model()
-
-        # self._slider = Scale(self.root, from_=0, to=1, orient=HORIZONTAL, command = self._on_slider_moved)
-        # self._slider.pack()
 
     def _init_menus( self ):
         # create a toplevel menu
@@ -89,7 +92,7 @@ class App:
 
         if self.image_path == "" :
             return
-
+            
         proxy_img = nib.load( self.image_path )
         canonical_img = nib.as_closest_canonical(proxy_img)
         image_data = canonical_img.get_fdata()
@@ -98,14 +101,11 @@ class App:
 
         name = 'result.nii.gz'
         os.makedirs(self.RESULTS_PATH,exist_ok=True)
+        
+        self._save_nifti_image(generated_mask, canonical_img.affine, name)
 
-        new_header = proxy_img.header.copy()
-        new_img = nib.nifti1.Nifti1Image(generated_mask, None, header=new_header)
-        print(generated_mask.ndim)
-        print(generated_mask.shape)
-        print(generated_mask.size)
-
-        img = nib.Nifti1Image(generated_mask, canonical_img.affine)
+    def _save_nifti_image( self , image , affine, name):
+        img = nib.Nifti1Image(image, affine)
         img.to_filename(self.RESULTS_PATH + name)
         nib.save(img, self.RESULTS_PATH + name)
 
