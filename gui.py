@@ -50,9 +50,11 @@ class App:
         c = tk.Checkbutton( self.root, text="Show image masks", variable=self._mask_enabled_var, command=self._on_dispay_mask_changed )
         c.pack()
         
+        self._slider = tk.Scale(self.root, from_=0, to=1, orient=tk.HORIZONTAL, resolution=0.05, command = self._on_slider_moved)
+        self._slider.pack()
+        
         self._init_model()
-        # self._slider = Scale(self.root, from_=0, to=1, orient=HORIZONTAL, command = self._on_slider_moved)
-        # self._slider.pack()
+
 
     def _init_model( self ):
         self.model = Unet_model( 3,
