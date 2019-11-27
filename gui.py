@@ -1,27 +1,29 @@
 import tkinter as tk
-import nibabel as nib
 from niiPlot import MRI_plot 
-import unet.main as main
 import numpy as np
-from tqdm import tqdm
-from skimage.io import  imsave
-from skimage.transform import resize
-from skimage.color import gray2rgb
+import nibabel as nib
+from unet.unetModel import Unet_model
 
 class App:
-    IMG_CHANNELS = 3
     IMG_WIDTH = 128
     IMG_HEIGHT = 128
+    IMG_CHANNELS = 3
+    TRAIN_PATH = './input/NIfTI/NIfTIs/training/'
+    TEST_PATH = './input/NIfTI/NIfTIs/testing/'
+    PREPROCESSED_TRAIN_PATH = "./input/NIfTI/training/"
+    PREPROCESSED_TEST_PATH = "./input/NIfTI/testing/"
+    TEST_DATA_LABELED = True
     RESULTS_PATH = "./output/"
+    
     #Class variables
     root = None
     image_path = ""
     label_path = ""
     plot_canvas = None
+    model = None
     
     _mask_enabled_var = None
     _slider = None
-    model = None
 
     #Procedures
     def __init__(self, master):       
@@ -36,7 +38,7 @@ class App:
         self._menu_file = [( "Open NIfTI image...",         self._on_load_image         ), 
                            ( "Open NIfTI image labels...",  self._on_load_labels        ), 
                            ( "Separator",                   None                        ), 
-                           ( "Generate labels...",          self._not_yet_implemented   ),
+                           ( "Generate labels...",          self._generate_mask         ),
                            ( "Separator",                   None                        ), 
                            ( "Exit",                        self.root.quit              )]
 
@@ -53,10 +55,22 @@ class App:
         self._mask_enabled_var.set( 1 )
         c = tk.Checkbutton( self.root, text="Show image masks", variable=self._mask_enabled_var, command=self._on_dispay_mask_changed )
         c.pack()
-        self.model = main.load_model()
         
+        self._init_model()
         # self._slider = Scale(self.root, from_=0, to=1, orient=HORIZONTAL, command = self._on_slider_moved)
         # self._slider.pack()
+
+    def _init_model( self ):
+        self.model = Unet_model( self.IMG_WIDTH,
+                    self.IMG_HEIGHT,
+                    self.IMG_CHANNELS,
+                    self.TRAIN_PATH,
+                    self.TEST_PATH,
+                    self.PREPROCESSED_TRAIN_PATH,
+                    self.PREPROCESSED_TEST_PATH,
+                    self.TEST_DATA_LABELED,
+                    [ ( ( 0, 0, 0 ), "Background" ), ( ( 127, 127, 127 ), "Ventricular Myocardum" ), ( ( 255, 255, 255 ), "Blood Pool" ) ] )
+        self.model.load_model()
 
     def _init_menus( self ):
         # create a toplevel menu
@@ -76,60 +90,31 @@ class App:
         
     def _on_load_image( self ):
         self.image_path = tk.filedialog.askopenfilename(parent=self.root, initialdir = "/",title = "Select image file",filetypes = (("NIfTI files","*.nii.gz;*.nii"),("all files","*.*")))
-        print(self.image_path)
         self.label_path = ""
         if( self.image_path != "" ):
-            self._display_nifti_image()
-            self.generate_mask()
+            self._display_nifti_image()        
 
-    def generate_mask( self ):
+    def _generate_mask( self ):
         print("Generate mask");
 
         proxy_img = nib.load( self.image_path )
         canonical_img = nib.as_closest_canonical(proxy_img)
         image_data = canonical_img.get_fdata()
-        min_max = ( image_data.min(), image_data.max() )
 
-        numslices0 = image_data.shape[ 0 ]
-        numslices1 = image_data.shape[ 1 ]
-        numslices2 = image_data.shape[ 2 ]
+        generated_mask = self.model.predict_volume( image_data )
 
-        print(image_data.ndim)
-        print(image_data.shape)
-        print(image_data.size)
-           
-        name = 'result.nii.gz'
+        self._save_nifti_image(generated_mask, canonical_img.affine, 'result.nii.gz')
 
-        result  = image_data
-        new_header = header = proxy_img.header.copy()
-        new_data = np.zeros( ( self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_WIDTH ), dtype=np.uint8 )
-        new_img = nib.nifti1.Nifti1Image(new_data, None, header=new_header)
-        print(new_data.ndim)
-        print(new_data.shape)
-        print(new_data.size)
-        for i in tqdm( range(numslices0) ):
-            img = image_data[i,:,:]
-            img = np.flip( img.T, axis = 0 )
-            if len( img.shape ) == 2 or ( self.IMG_CHANNELS == 3 and img.shape[2] != self.IMG_CHANNELS ):
-                img = gray2rgb( img )
-            img = resize(img, (self.IMG_HEIGHT, self.IMG_WIDTH), mode='constant', preserve_range=True )
-            img = img * ( 255 / min_max[1] )
-            img = img.astype(np.uint8)
-            result = self.model.predict_one_from_memory(img)
-            
-            print(result.ndim)
-            print(result.shape)
-            print(result.size)
-                
-            new_data[i,:,:] = result
-
-        imsave( self.RESULTS_PATH + name, result)
+    def _save_nifti_image( self , image , affine, name):
+        img = nib.Nifti1Image(image, affine)
+        img.to_filename(self.RESULTS_PATH + name)
+        nib.save(img, self.RESULTS_PATH + name)
         
     def _on_load_labels( self ):
         self.label_path = tk.filedialog.askopenfilename(parent=self.root, initialdir = "/",title = "Select image mask",filetypes = (("NIfTI files","*.nii.gz;*.nii"),("all files","*.*")))
         if( self.label_path != "" ):
             self._display_nifti_image()
-        
+
     def _not_yet_implemented( self ):
         print( "castraveCiori")
         

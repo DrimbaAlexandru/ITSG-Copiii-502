@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from skimage.io import imread, imsave, imshow
 from skimage.transform import resize
+from skimage.color import gray2rgb, rgb2gray
 
 from keras.models import Model, load_model
 from keras.layers import Input
@@ -58,9 +59,7 @@ class Unet_model:
                   test_path_out,
                   test_data_labeled,
                   classes = [ ( ( 0, 0, 0 ), "Background" ), ( ( 255, 255, 255 ), "Class 1" ) ] ):
-                 
-        self.IMG_WIDTH = width
-        self.IMG_HEIGHT = height
+        self.IMG_SIZE = 128          
         self.IMG_CHANNELS = channels
         self.TRAIN_PATH = train_path_in
         self.TEST_PATH = test_path_in
@@ -77,10 +76,10 @@ class Unet_model:
 
         self.VALIDATION_SPLIT = 0.1
 
-        self.ones = np.ones( ( self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS ), dtype=np.uint8 )
+        self.ones = np.ones( ( self.IMG_SIZE, self.IMG_SIZE, self.IMG_CHANNELS ), dtype=np.uint8 )
 
     def mask_to_classes( self, mask ):
-        classes = np.zeros( ( self.NUM_CLASSES, self.IMG_HEIGHT, self.IMG_WIDTH ), dtype=np.bool )
+        classes = np.zeros( ( self.NUM_CLASSES, self.IMG_SIZE, self.IMG_SIZE ), dtype=np.bool )
         for i, ( color, _ ) in enumerate( self.CLASSES ):
             curr_class_mask = np.all( np.equal( mask, color * self.ones ), axis = -1 )
             # plt.show()
@@ -92,7 +91,7 @@ class Unet_model:
         return classes
 
     def masks_to_classes(self, masks):
-        classes_masks = np.zeros( ( len( masks ), self.IMG_HEIGHT, self.IMG_WIDTH, self.NUM_CLASSES ), dtype=np.bool)
+        classes_masks = np.zeros( ( len( masks ), self.IMG_SIZE, self.IMG_SIZE, self.NUM_CLASSES ), dtype=np.bool)
         for i, mask in tqdm(enumerate(masks), total=len(masks)):
             classes = self.mask_to_classes(mask)
             classes_masks[ i ] = classes
@@ -106,8 +105,8 @@ class Unet_model:
         train_ids = next( os.walk( self.PREPROCESSED_TRAIN_PATH + "images/" ) )[2]
 
         # Get and resize train images and masks
-        self.train_images = np.zeros( ( len( train_ids ), self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS ), dtype=np.uint8)
-        self.train_masks  = np.zeros( ( len( train_ids ), self.IMG_HEIGHT, self.IMG_WIDTH, self.NUM_CLASSES ), dtype=np.bool)
+        self.train_images = np.zeros( ( len( train_ids ), self.IMG_SIZE, self.IMG_SIZE, self.IMG_CHANNELS ), dtype=np.uint8)
+        self.train_masks  = np.zeros( ( len( train_ids ), self.IMG_SIZE, self.IMG_SIZE, self.NUM_CLASSES ), dtype=np.bool)
 
         for n, id_ in tqdm(enumerate(train_ids), total=len(train_ids)):
             img = imread( self.PREPROCESSED_TRAIN_PATH + "images/" + id_ )[:,:,:self.IMG_CHANNELS]
@@ -128,8 +127,8 @@ class Unet_model:
         test_ids = next( os.walk( self.PREPROCESSED_TEST_PATH + "images/" ) )[2]
 
         # Get and resize train images and masks
-        self.test_images = np.zeros( ( len( test_ids ), self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS ), dtype=np.uint8)
-        self.test_masks  = np.zeros( ( len( test_ids ), self.IMG_HEIGHT, self.IMG_WIDTH, self.NUM_CLASSES ), dtype=np.bool)
+        self.test_images = np.zeros( ( len( test_ids ), self.IMG_SIZE, self.IMG_SIZE, self.IMG_CHANNELS ), dtype=np.uint8)
+        self.test_masks  = np.zeros( ( len( test_ids ), self.IMG_SIZE, self.IMG_SIZE, self.NUM_CLASSES ), dtype=np.bool)
 
         for n, id_ in tqdm(enumerate(test_ids), total=len(test_ids)):
             img = imread( self.PREPROCESSED_TEST_PATH + "images/" + id_ )[:,:,:self.IMG_CHANNELS]
@@ -159,7 +158,7 @@ class Unet_model:
         print( "Build U-Net model" )
             
         # Build U-Net model
-        inputs = Input( ( self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS ) )
+        inputs = Input( ( self.IMG_SIZE, self.IMG_SIZE, self.IMG_CHANNELS ) )
         s = Lambda(lambda x: x / 255) (inputs)
 
         c1 = Conv2D(16, (3, 3), activation='elu', kernel_initializer='he_normal', padding='same') (s)
@@ -232,7 +231,7 @@ class Unet_model:
 
     # prediction has the shape x y m
     def _prediction_to_mask( self, prediction ):
-        mask = np.zeros( ( self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS ), dtype=np.uint8 )
+        mask = np.zeros( ( self.IMG_SIZE, self.IMG_SIZE, self.IMG_CHANNELS ), dtype=np.uint8 )
         idxs = np.argmax( prediction, axis=-1 )
         for cn, ( k, _ ) in enumerate( self.CLASSES ):
             mask[ idxs == cn ] = k
@@ -247,7 +246,7 @@ class Unet_model:
         return masks
 
     def predict_one(self, path_in, path_out=None ):
-        input_images  = np.zeros( ( 1,  self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS ), dtype=np.uint8)
+        input_images  = np.zeros( ( 1,  self.IMG_SIZE, self.IMG_SIZE, self.IMG_CHANNELS ), dtype=np.uint8)
         input_images[0] = imread( path_in )[:,:,:self.IMG_CHANNELS]
         preds = self.model.predict(input_images, verbose=0)
         preds_mask = self._predictions_to_mask(preds)
@@ -256,19 +255,12 @@ class Unet_model:
 
         return preds_mask[0]
 
-    def predict_one_from_memory( self, img_in ):
-        input_images  = np.zeros( ( 1,  self.IMG_HEIGHT, self.IMG_WIDTH, self.IMG_CHANNELS ), dtype=np.uint8)
-        input_images[0] = img_in[:,:,:self.IMG_CHANNELS]
-        preds = self.model.predict(input_images, verbose=0)
-        preds_mask = self._predictions_to_mask(preds)
-        return preds_mask[0]
-
     def predict_all(self, base_folder, write_output=True):
         # Get IDs
         # Returns a list of file names in the given path
         ids = next( os.walk( base_folder + "images/" ) )[2]
 
-        pred_masks = np.zeros( ( len( ids ), self.IMG_HEIGHT, self.IMG_WIDTH, self.NUM_CLASSES ), dtype=np.uint8)
+        pred_masks = np.zeros( ( len( ids ), self.IMG_SIZE, self.IMG_SIZE, self.NUM_CLASSES ), dtype=np.uint8)
 
         if write_output:
             os.makedirs(base_folder + "masks_generated/",exist_ok=True)
@@ -280,6 +272,26 @@ class Unet_model:
 
     def predict_from_model( self ):
         self.predict_all(self.PREPROCESSED_TEST_PATH,True)
+
+    def predict_volume( self, img ):
+        original_size = img.shape[:3]
+        original_channel_nr = img.shape[3] if len(img.shape)==4 else 0
+
+        img = img * ( 255 / img.max() )
+
+        resized_data = resize(img, (self.IMG_SIZE,self.IMG_SIZE,self.IMG_SIZE), mode='edge', preserve_range=True, order = 1, anti_aliasing = False)
+        if original_channel_nr != self.IMG_CHANNELS:
+            resized_data = gray2rgb( resized_data )
+        resized_data = resized_data.astype(np.uint8)
+
+        preds = self.model.predict(resized_data, verbose=1)
+
+        generated_mask = self._predictions_to_mask(preds)
+        generated_mask_resized = resize(generated_mask, original_size, mode='edge', preserve_range=True, order = 0, anti_aliasing = False )
+        if( original_channel_nr != self.IMG_CHANNELS ):
+            generated_mask_resized = rgb2gray(generated_mask_resized)
+
+        return generated_mask_resized
 
     def evaluate_model(self):
 
