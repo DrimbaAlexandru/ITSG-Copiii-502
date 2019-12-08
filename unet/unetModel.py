@@ -73,7 +73,11 @@ class Unet_model:
         self.LOG_DIR = "logs\\fit\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         os.makedirs(self.LOG_DIR)
 
-        self.VALIDATION_SPLIT = 0.1
+        self.VALIDATION_SPLIT = 0.2
+
+        self.metrics = {}
+        self.epochs_measured = 0
+        self.tensorboard = TensorBoard(log_dir=self.LOG_DIR, histogram_freq=1)
 
         self.ones = np.ones( ( self.IMG_SIZE, self.IMG_SIZE, self.IMG_CHANNELS ), dtype=np.uint8 )
 
@@ -219,14 +223,16 @@ class Unet_model:
         print( "Fit model" )
         
         # Fit model
-        tensorboard = TensorBoard(log_dir=self.LOG_DIR, histogram_freq=1)
+
         earlystopper = EarlyStopping(patience=5, verbose=1)
         checkpointer = ModelCheckpoint(self.MODEL_PATH, verbose=1, save_best_only=True, monitor="val_iou_coef_loss")
         # checkpointer = ModelCheckpoint( self.MODEL_PATH, verbose=1, save_best_only=True )
 
         self.model.fit(self.train_images, self.train_masks, validation_split=self.VALIDATION_SPLIT,
                        batch_size=16, epochs=epochs,
-                       callbacks=[earlystopper, checkpointer, tensorboard])
+                       callbacks=[earlystopper, checkpointer, self.tensorboard])
+
+        self.epochs_measured += epochs
 
     # prediction has the shape x y m
     def _prediction_to_mask( self, prediction ):
@@ -294,39 +300,58 @@ class Unet_model:
 
     def evaluate_model(self):
 
-        input_train = self.train_images[int(self.train_images.shape[0] * self.VALIDATION_SPLIT ):]
+        input_learn = self.train_images[int(self.train_images.shape[0] * self.VALIDATION_SPLIT ):]
         input_val   = self.train_images[:int(self.train_images.shape[0] * self.VALIDATION_SPLIT )]
 
-        masks_train = self.train_masks[int(self.train_images.shape[0] * self.VALIDATION_SPLIT ):]
+        masks_learn = self.train_masks[int(self.train_images.shape[0] * self.VALIDATION_SPLIT ):]
         masks_val  = self.train_masks[:int(self.train_images.shape[0] * self.VALIDATION_SPLIT )]
 
-        metrics_train = self.model.evaluate(input_train,masks_train,batch_size=16)
+        metrics_learn = self.model.evaluate(input_learn,masks_learn,batch_size=16)
         metrics_val = self.model.evaluate(input_val,masks_val,batch_size=16)
+
+        self.metrics[self.epochs_measured]=[]
+        self.metrics[self.epochs_measured].append(metrics_learn[1:3])
+        self.metrics[self.epochs_measured].append(metrics_val[1:3])
 
         if( self.IS_TEST_DATA_LABELED ):
             metrics_test = self.model.evaluate(self.test_images,self.test_masks,batch_size=16)
+            self.metrics[self.epochs_measured].append(metrics_test[1:3])
 
+
+    def write_model_metrics(self):
         resultsFile = open(self.LOG_DIR + "\\results.txt", "w")
 
-        resultsFile.write("Number of training samples: " + str( len(input_train) ) )
-        resultsFile.write("\r\nNumber of validation samples: " + str( len(input_val) ) )
+        resultsFile.write("Number of learning samples: " + str( self.train_images.shape[0] * ( 1 - self.VALIDATION_SPLIT ) ) )
+        resultsFile.write("\nNumber of validation samples: " + str( self.train_images.shape[0] * self.VALIDATION_SPLIT ) )
         if( self.IS_TEST_DATA_LABELED ):
-            resultsFile.write("\r\nNumber of testing samples: " + str( len(self.test_images) ) )
+            resultsFile.write("\nNumber of testing samples: " + str( len(self.test_images) ) )
 
-        resultsFile.write("\r\nTraining results:" )
-        resultsFile.write("\r\n  IoU:  " + str( metrics_train[1] ) )
-        resultsFile.write("\r\n  Dice: " + str( metrics_train[2] ) )
-        resultsFile.write("\r\n")
+        resultsFile.write("\nLearning results:" )
+        resultsFile.write("\n  IoU,   Dice\n")
+        for epoch in range(0,self.epochs_measured+1):
+            if epoch in self.metrics:
+                for metric in self.metrics[epoch][0]:
+                    resultsFile.write( str( metric )+ ", " )
+                resultsFile.write("\n")
+        resultsFile.write("\n")
 
-        resultsFile.write("\r\nValidation results:" )
-        resultsFile.write("\r\n  IoU:  " + str( metrics_val[1] ) )
-        resultsFile.write("\r\n  Dice: " + str( metrics_val[2] ) )
-        resultsFile.write("\r\n")
+        resultsFile.write("\nValidation results:" )
+        resultsFile.write("\n  IoU,   Dice\n")
+        for epoch in range(0,self.epochs_measured+1):
+            if epoch in self.metrics:
+                for metric in self.metrics[epoch][1]:
+                    resultsFile.write( str( metric )+ ", " )
+                resultsFile.write("\n")
+        resultsFile.write("\n")
 
         if( self.IS_TEST_DATA_LABELED ):
-            resultsFile.write("\r\nTest results:" )
-            resultsFile.write("\r\n  IoU:  " + str( metrics_test[1] ) )
-            resultsFile.write("\r\n  Dice: " + str( metrics_test[2] ) )
-            resultsFile.write("\r\n")
+            resultsFile.write("\nTesting results:" )
+            resultsFile.write("\n  IoU,   Dice\n")
+            for epoch in range(0,self.epochs_measured+1):
+                if epoch in self.metrics:
+                    for metric in self.metrics[epoch][2]:
+                        resultsFile.write( str( metric )+ ", " )
+                    resultsFile.write("\n")
+            resultsFile.write("\n")
 
-        resultsFile.close()
+            resultsFile.close()

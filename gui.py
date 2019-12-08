@@ -144,4 +144,6 @@ root = tk.Tk()
 app = App(root)
 
 root.mainloop()
-#root.destroy() # optional; see description below
+root.destroy() # optional; see description below
+
+#Pentru mindmap: chestii tehnice, sau chestii din procesul de dezvoltare. (idee->date->algoritm etc. )
