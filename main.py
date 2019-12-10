@@ -1,10 +1,11 @@
-from unet.preprocessNifti import NIfTIPreprocessor
+from unet.preprocessNiftis import NIfTIsPreprocessor
 from unet.unetModel import Unet_model
-import nibabel as nib
+from unet.unet3DModel import Unet_3d_model
+
+import random
 
 # Set some parameters
-IMG_WIDTH = 128
-IMG_HEIGHT = 128
+IMG_SIZE = 96
 IMG_CHANNELS = 3
 TRAIN_PATH = './unet/input/NIfTI/NIfTIs/training/'
 TEST_PATH = './unet/input/NIfTI/NIfTIs/testing/'
@@ -12,25 +13,34 @@ PREPROCESSED_TRAIN_PATH = "./unet/input/NIfTI/training/"
 PREPROCESSED_TEST_PATH = "./unet/input/NIfTI/testing/"
 TEST_DATA_LABELED = True
 
-needs_preprocess = False
+needs_preprocess = True
 
 if needs_preprocess:
-    preprocessor = NIfTIPreprocessor( IMG_WIDTH, IMG_HEIGHT, IMG_CHANNELS, TRAIN_PATH, TEST_PATH, PREPROCESSED_TRAIN_PATH, PREPROCESSED_TEST_PATH, TEST_DATA_LABELED )
+    preprocessor = NIfTIsPreprocessor( IMG_SIZE, TRAIN_PATH, TEST_PATH, PREPROCESSED_TRAIN_PATH, PREPROCESSED_TEST_PATH, TEST_DATA_LABELED )
+
+    # for i in range( 0, 1 ):
+    #     preprocessor.handicapeaza("D:/git/ITSG-Copiii-502/unet/input/NIfTI/NIfTIs/Training dataset/training_axial_full_pat"+str(i)+".nii.gz",
+    #                               "D:/git/ITSG-Copiii-502/unet/input/NIfTI/NIfTIs/training/training_axial_full_pat"+str(i)+"_0.nii.gz",
+    #                               coords1[i],
+    #                               coords2[i],
+    #                               (0,random.random()*40-20,random.random()*40-20))
+
     preprocessor.preprocess()
 
-model = Unet_model( IMG_CHANNELS,
-                    TRAIN_PATH,
-                    TEST_PATH,
-                    PREPROCESSED_TRAIN_PATH,
-                    PREPROCESSED_TEST_PATH,
-                    TEST_DATA_LABELED,
-                    [ ( ( 0, 0, 0 ), "Background" ), ( ( 127, 127, 127 ), "Ventricular Myocardum" ), ( ( 255, 255, 255 ), "Blood Pool" ) ] )
+model = Unet_3d_model( IMG_SIZE,
+                       TRAIN_PATH,
+                       TEST_PATH,
+                       PREPROCESSED_TRAIN_PATH,
+                       PREPROCESSED_TEST_PATH,
+                       TEST_DATA_LABELED,
+                       [ ( (0), "Background" ), ( (127), "Ventricular Myocardum" ), ( (255), "Blood Pool" ) ] )
+
 model.load_training_images()
 model.load_testing_images()
 model.create_model()
 #model.load_model()
-for i in range( 0, 10 ):
-    model.fit_model( 1 )
+for i in range( 0, 1 ):
+    model.fit_model( 100 )
     model.save_model()
     #model.predict_from_model()
     model.evaluate_model()

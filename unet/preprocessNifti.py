@@ -24,9 +24,9 @@ class NIfTIPreprocessor:
         self.PREPROCESSED_TEST_PATH = test_path_out
 
         os.makedirs(self.TRAIN_PATH + 'images/', exist_ok=True)
-        os.makedirs(self.TRAIN_PATH + 'labels/', exist_ok=True)
+        os.makedirs(self.TRAIN_PATH + 'masks/', exist_ok=True)
         os.makedirs(self.TEST_PATH + 'images/', exist_ok=True)
-        os.makedirs(self.TEST_PATH + 'labels/', exist_ok=True)
+        os.makedirs(self.TEST_PATH + 'masks/', exist_ok=True)
 
         os.makedirs(self.PREPROCESSED_TRAIN_PATH + 'images/', exist_ok=True)
         os.makedirs(self.PREPROCESSED_TRAIN_PATH + 'masks/', exist_ok=True)
@@ -40,7 +40,7 @@ class NIfTIPreprocessor:
         train_image_ids = next(os.walk(self.TRAIN_PATH + 'images/'))[2]
         test_image_ids = next(os.walk(self.TEST_PATH + 'images/'))[2]
 
-        print('Getting and resizing training images and labels... ', flush=True)
+        print('Getting and resizing training images and masks... ', flush=True)
         for n, id_ in enumerate(train_image_ids):
             # Process images
             print( "Exporting image %d/%d" % ( n+1, len(train_image_ids) ), flush=True )
@@ -87,8 +87,8 @@ class NIfTIPreprocessor:
                 img = img.astype(np.uint8)
                 imsave( self.PREPROCESSED_TRAIN_PATH + "images/AXIS2-%s-%04d.png" % (name, k), img )
 
-            # Process labels
-            proxy_img = nib.load( self.TRAIN_PATH + 'labels/' + name + "-label.nii.gz")
+            # Process masks
+            proxy_img = nib.load( self.TRAIN_PATH + 'masks/' + name + "-label.nii.gz")
             canonical_img = nib.as_closest_canonical(proxy_img)
             
             image_data = canonical_img.get_fdata()
@@ -130,7 +130,7 @@ class NIfTIPreprocessor:
                 img = img.astype(np.uint8)
                 imsave( self.PREPROCESSED_TRAIN_PATH + "masks/AXIS2-%s-%04d.png" % (name, k), img )
 
-        print('Getting and resizing testing images and labels... ', flush=True)
+        print('Getting and resizing testing images and masks... ', flush=True)
         for n, id_ in enumerate(test_image_ids):
             # Process images
             print( "Exporting image %d/%d" % ( n+1, len(test_image_ids) ), flush=True )
@@ -180,8 +180,8 @@ class NIfTIPreprocessor:
             if not self.TEST_LABELED:
                 continue
 
-            # Process labels
-            proxy_img = nib.load( self.TEST_PATH + 'labels/' + name + "-label.nii.gz")
+            # Process masks
+            proxy_img = nib.load( self.TEST_PATH + 'masks/' + name + "-label.nii.gz")
             canonical_img = nib.as_closest_canonical(proxy_img)
 
             image_data = canonical_img.get_fdata()
