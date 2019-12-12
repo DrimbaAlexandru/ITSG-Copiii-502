@@ -4,6 +4,7 @@ import tkinter as tk
 import nibabel as nib
 from niiPlot import MRI_plot 
 from unet.unetModel import Unet_model
+from unet.unet3DModel import Unet_3d_model
 
 
 class App:
@@ -18,6 +19,7 @@ class App:
     _mask_enabled_var = None
     _slider = None
     model = None
+    model_3d = None
 
     #Procedures
     def __init__(self, master):       
@@ -29,12 +31,13 @@ class App:
         self.root.resizable(0, 0)
         
         #Class constants
-        self._menu_file = [( "Open NIfTI image...",         self._on_load_image         ), 
-                           ( "Open NIfTI image labels...",  self._on_load_labels        ), 
-                           ( "Separator",                   None                        ), 
-                           ( "Generate labels...",          self._generate_mask         ),
-                           ( "Separator",                   None                        ), 
-                           ( "Exit",                        self.root.quit              )]
+        self._menu_file = [( "Open NIfTI image...",           self._on_load_image         ),
+                           ( "Open NIfTI image labels...",    self._on_load_labels        ),
+                           ( "Separator",                     None                        ),
+                           ( "Generate labels...",            self._generate_mask         ),
+                           ( "Generate labels with 3D model", self._generate_mask_3D      ),
+                           ( "Separator",                     None                        ),
+                           ( "Exit",                          self.root.quit              )]
 
         self._menu_options = [( "ML method", self._not_yet_implemented )]
 
@@ -54,7 +57,17 @@ class App:
         self._slider.pack()
         
         self._init_model()
+        self._init_3d_model()
 
+    def _init_3d_model( self ):
+        self.model_3d = Unet_3d_model( 96,
+                                       None,
+                                       None,
+                                       None,
+                                       None,
+                                       None,
+                                       [ ( (0), "Background" ), ( (127), "Ventricular Myocardum" ), ( (255), "Blood Pool" ) ] )
+        self.model_3d.load_model()
 
     def _init_model( self ):
         self.model = Unet_model( 3,
@@ -90,7 +103,7 @@ class App:
             self._display_nifti_image()
 
     def _generate_mask( self ):
-        print("Generate mask");
+        print("Generate mask")
 
         if self.image_path == "" :
             return
@@ -104,6 +117,25 @@ class App:
         name = 'result.nii.gz'
         os.makedirs(self.RESULTS_PATH,exist_ok=True)
         
+        self._save_nifti_image(generated_mask, canonical_img.affine, name)
+
+    def _generate_mask_3D( self ):
+        print("Generate mask with 3D model")
+
+        if self.image_path == "" :
+            return
+
+        image_data = self.model_3d._load_image( self.image_path )
+
+
+        proxy_img = nib.load( self.image_path )
+        canonical_img = nib.as_closest_canonical(proxy_img)
+
+        generated_mask = self.model_3d.predict_volume( image_data )
+
+        name = 'result.nii.gz'
+        os.makedirs(self.RESULTS_PATH,exist_ok=True)
+
         self._save_nifti_image(generated_mask, canonical_img.affine, name)
 
     def _save_nifti_image( self , image , affine, name):

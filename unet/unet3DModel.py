@@ -258,20 +258,44 @@ class Unet_3d_model:
         return masks
 
     def predict_volume( self, img ):
-        original_size = img.shape[:]
+        original_size = img.shape[:3]
+        print(original_size)
 
         img = img * ( 255 / img.max() )
+        imgs = np.zeros( ( 1 , self.IMG_SIZE, self.IMG_SIZE, self.IMG_SIZE, 1 ), dtype=np.uint8)
 
         resized_data = resize(img, (self.IMG_SIZE,self.IMG_SIZE,self.IMG_SIZE), mode='edge', preserve_range=True, order = 1, anti_aliasing = False)
         resized_data = resized_data.astype(np.uint8)
+        imgs[0] = resized_data
+        preds = self.model.predict(imgs,  verbose = 1)
 
-        preds = self.model.predict(resized_data, verbose=1)
+        generated_masks = self._predictions_to_mask(preds)
+        print(generated_masks.shape)
 
-        generated_mask = self._predictions_to_mask(preds)
-        generated_mask_resized = resize(generated_mask, original_size, mode='edge', preserve_range=True, order = 0, anti_aliasing = False )
+        generated_mask = generated_masks[0]
+        print(generated_mask.shape)
+
+        list = []
+        for i in range(self.IMG_SIZE):
+            for j in range(self.IMG_SIZE):
+                for k in range(self.IMG_SIZE):
+                    list.append(generated_mask[i,j,k].tolist())
+
+        palette = sort_and_deduplicate(list)
+        generated_mask_resized = resize(gm, original_size, mode='edge', preserve_range=True, order = 0, anti_aliasing = False )
 
         return generated_mask_resized
 
+    def uniq(lst):
+        last = object()
+        for item in lst:
+            if item == last:
+                continue
+            yield item
+            last = item
+
+    def sort_and_deduplicate(l):
+        return list(uniq(sorted(l, reverse=True)))
 
     def evaluate_model(self):
 
