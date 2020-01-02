@@ -1,10 +1,10 @@
 import os
 
 import tkinter as tk
-import nibabel as nib
-from niiPlot import MRI_plot 
+from niiPlot import MRI_plot
 from unet.unetModel import Unet_model
 
+import utils.utils as myUtils
 
 class App:
     IMG_CHANNELS = 3
@@ -94,23 +94,15 @@ class App:
 
         if self.image_path == "" :
             return
-            
-        proxy_img = nib.load( self.image_path )
-        canonical_img = nib.as_closest_canonical(proxy_img)
-        image_data = canonical_img.get_fdata()
+
+        image_data, affine = myUtils.load_nifti_image( self.image_path )
 
         generated_mask = self.model.predict_volume( image_data )
 
         name = 'result.nii.gz'
         os.makedirs(self.RESULTS_PATH,exist_ok=True)
         
-        self._save_nifti_image(generated_mask, canonical_img.affine, name)
-
-    def _save_nifti_image( self , image , affine, name):
-        img = nib.Nifti1Image(image, affine)
-        img.to_filename(self.RESULTS_PATH + name)
-        nib.save(img, self.RESULTS_PATH + name)
-
+        myUtils.save_nifti_image(generated_mask, affine, self.RESULTS_PATH + name)
 
     def _on_load_labels( self ):
         self.label_path = tk.filedialog.askopenfilename(parent=self.root, initialdir = "/",title = "Select image mask",filetypes = (("NIfTI files","*.nii.gz;*.nii"),("all files","*.*")))

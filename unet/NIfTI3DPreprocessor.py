@@ -2,14 +2,15 @@ import os
 import warnings
 
 import numpy as np
-import nibabel as nib
+import utils.utils as myUtils
+
 from skimage.transform import resize
 from tqdm import tqdm
 
 warnings.filterwarnings('ignore', category=UserWarning, module='skimage')
 
 
-class NIfTIsPreprocessor:
+class NIfTI3DPreprocessor:
     def __init__(self, size, train_path_in, test_path_in, train_path_out, test_path_out, test_labeled=False ):
         self.IMG_SIZE = size
         self.TRAIN_PATH = train_path_in
@@ -29,11 +30,8 @@ class NIfTIsPreprocessor:
         os.makedirs(self.PREPROCESSED_TEST_PATH + 'images/', exist_ok=True)
         os.makedirs(self.PREPROCESSED_TEST_PATH + 'masks/', exist_ok=True)
 
-    def distort(self, img_path_in, img_path_out, top_left, lengths, skew, dither = False ):
-
-        proxy_img = nib.load( img_path_in )
-        canonical_img = nib.as_closest_canonical(proxy_img)
-        image_data = canonical_img.get_fdata()
+    def distort(self, img_path_in, img_path_out, top_left, lengths, skew, dither = False):
+        image_data, affine = myUtils.load_nifti_image(img_path_in)
         shape = image_data.shape[:]
         src_coords = np.zeros((3))
 
@@ -62,10 +60,8 @@ class NIfTIsPreprocessor:
                             img_data_out[x][y][z] += src_coords_dec[0]/3 * image_data[src_coords_ints[0] + 1][ src_coords_ints[1], src_coords_ints[2]] + \
                                                      src_coords_dec[1]/3 * image_data[src_coords_ints[0]][src_coords_ints[1] + 1][src_coords_ints[2]] + \
                                                      src_coords_dec[2]/3 * image_data[src_coords_ints[0]][src_coords_ints[1]][src_coords_ints[2] + 1]
-        img = nib.Nifti1Image(img_data_out, canonical_img.affine)
-        img.to_filename( img_path_out )
-        nib.save(img, img_path_out )
 
+        myUtils.save_nifti_image(img_data_out, affine, img_path_out)
 
     def preprocess( self ):
         # Get train and test IDs
@@ -80,26 +76,16 @@ class NIfTIsPreprocessor:
             print( "Exporting image %d/%d" % ( n+1, len(train_image_ids) ), flush=True )
 
             name = id_.split('.')[0]
-            proxy_img = nib.load( self.TRAIN_PATH + 'images/' + id_)
-            canonical_img = nib.as_closest_canonical(proxy_img)
-            
-            image_data = canonical_img.get_fdata()
+            image_data, affine = myUtils.load_nifti_image(self.TRAIN_PATH + 'images/' + id_)
             image_data = resize(image_data, (self.IMG_SIZE, self.IMG_SIZE, self.IMG_SIZE), mode='edge', preserve_range=True )
 
-            img = nib.Nifti1Image(image_data, canonical_img.affine)
-            img.to_filename(self.PREPROCESSED_TRAIN_PATH + "images/" + id_ )
-            nib.save(img, self.PREPROCESSED_TRAIN_PATH + "images/" + id_ )
+            myUtils.save_nifti_image(image_data, affine, self.PREPROCESSED_TRAIN_PATH + "images/" + id_)
 
             # Process masks
-            proxy_img = nib.load( self.TRAIN_PATH + 'masks/' + name + "-label.nii.gz")
-            canonical_img = nib.as_closest_canonical(proxy_img)
-            
-            image_data = canonical_img.get_fdata()
+            image_data, affine = myUtils.load_nifti_image(self.TRAIN_PATH + 'masks/' + name + "-label.nii.gz")
             image_data = resize(image_data, (self.IMG_SIZE, self.IMG_SIZE, self.IMG_SIZE), mode='edge', preserve_range=True, order = 0, anti_aliasing = False )
 
-            img = nib.Nifti1Image(image_data, canonical_img.affine)
-            img.to_filename(self.PREPROCESSED_TRAIN_PATH + "masks/" + id_ )
-            nib.save(img, self.PREPROCESSED_TRAIN_PATH + "masks/" + id_ )
+            myUtils.save_nifti_image(image_data, affine, self.PREPROCESSED_TRAIN_PATH + "masks/" + id_)
 
         print('Getting and resizing testing images and masks... ', flush=True)
         for n, id_ in enumerate(test_image_ids):
@@ -107,29 +93,16 @@ class NIfTIsPreprocessor:
             print( "Exporting image %d/%d" % ( n+1, len(test_image_ids) ), flush=True )
 
             name = id_.split('.')[0]
-            proxy_img = nib.load( self.TEST_PATH + 'images/' + id_)
-            canonical_img = nib.as_closest_canonical(proxy_img)
-
-            image_data = canonical_img.get_fdata()
+            image_data, affine = myUtils.load_nifti_image(self.TEST_PATH + 'images/' + id_)
             image_data = resize(image_data, (self.IMG_SIZE, self.IMG_SIZE, self.IMG_SIZE), mode='edge', preserve_range=True )
 
-            img = nib.Nifti1Image(image_data, canonical_img.affine)
-            img.to_filename(self.PREPROCESSED_TEST_PATH + "images/" + id_ )
-            nib.save(img, self.PREPROCESSED_TEST_PATH + "images/" + id_ )
+            myUtils.save_nifti_image(image_data, affine, self.PREPROCESSED_TEST_PATH + "images/" + id_)
 
             if not self.TEST_LABELED:
                 continue
 
             # Process masks
-            proxy_img = nib.load( self.TEST_PATH + 'masks/' + name + "-label.nii.gz")
-            canonical_img = nib.as_closest_canonical(proxy_img)
-
-            image_data = canonical_img.get_fdata()
+            image_data, affine = myUtils.load_nifti_image(self.TEST_PATH + 'masks/' + name + "-label.nii.gz")
             image_data = resize(image_data, (self.IMG_SIZE, self.IMG_SIZE, self.IMG_SIZE), mode='edge', preserve_range=True, order = 0, anti_aliasing = False )
 
-            img = nib.Nifti1Image(image_data, canonical_img.affine)
-            img.to_filename(self.PREPROCESSED_TEST_PATH + "masks/" + id_ )
-            nib.save(img, self.PREPROCESSED_TEST_PATH + "masks/" + id_ )
-
-
-
+            myUtils.save_nifti_image(image_data, affine, self.PREPROCESSED_TEST_PATH + "masks/" + id_)

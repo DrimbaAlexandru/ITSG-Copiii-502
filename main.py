@@ -1,4 +1,4 @@
-from unet.preprocessNiftis import NIfTIsPreprocessor
+from unet.NIfTI3DPreprocessor import NIfTI3DPreprocessor
 from unet.unetModel import Unet_model
 from unet.unet3DModel import Unet_3d_model
 
@@ -39,7 +39,7 @@ images_coords = {
     "training_axial_full_pat9" : [((0, 135, 100), (175, 150, 215), (0, 0, 0))]
 }
 
-preprocessor = NIfTIsPreprocessor( IMG_SIZE, TRAIN_PATH, TEST_PATH, PREPROCESSED_TRAIN_PATH, PREPROCESSED_TEST_PATH, TEST_DATA_LABELED )
+preprocessor = NIfTI3DPreprocessor(IMG_SIZE, TRAIN_PATH, TEST_PATH, PREPROCESSED_TRAIN_PATH, PREPROCESSED_TEST_PATH, TEST_DATA_LABELED)
 
 if needs_augmentation:
     for img_name in images_coords:

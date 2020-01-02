@@ -2,10 +2,11 @@ import matplotlib
 
 matplotlib.use('TkAgg')
 
-import nibabel as nib
 import matplotlib.pyplot as plt
 from matplotlib.image import AxesImage
 from matplotlib.colors import Normalize
+
+import utils.utils as myUtils
 
 
 class MRI_plot:
@@ -43,13 +44,10 @@ class MRI_plot:
         
     def reload( self ):
         if( self._base_image_path != "" ):
-            proxy_img = nib.load( self._base_image_path )
-            canonical_img = nib.as_closest_canonical(proxy_img)
-            
-            self._base_image_data = canonical_img.get_fdata()
+            self._base_image_data, _ = myUtils.load_nifti_image(self._base_image_path)
             self._image_min_max = ( self._base_image_data.min(), self._base_image_data.max() )
             
-            print( self._base_image_data.shape)
+            print(self._base_image_data.shape)
             
             self._axial_pos = self._base_image_data.shape[ 0 ] // 2
             self._saggital_pos = self._base_image_data.shape[ 1 ] // 2
@@ -58,10 +56,8 @@ class MRI_plot:
             self._base_image_data = None
         
         if( self._mask_image_path != "" ):
-            proxy_img = nib.load( self._mask_image_path )
-            canonical_img = nib.as_closest_canonical(proxy_img)
-            self._mask_image_data = canonical_img.get_fdata()
-            
+            self._mask_image_data, _ = myUtils.load_nifti_image(self._mask_image_path)
+
             if( self._mask_image_data.shape != self._base_image_data.shape ):
                 print( "Incorrect mask dimensions")
                 self._mask_image_data = None

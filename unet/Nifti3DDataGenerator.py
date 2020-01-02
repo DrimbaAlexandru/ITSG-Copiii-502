@@ -1,6 +1,8 @@
 import numpy as np
 from keras.utils import Sequence
 
+import utils.utils as myUtils
+
 class Nifti3DDataGenerator(Sequence):
     """Generates data for Keras
     Sequence based data generator. Suitable for building data generator for training and prediction.
@@ -38,13 +40,13 @@ class Nifti3DDataGenerator(Sequence):
         indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
 
         # Find list of IDs
-        list_IDs_temp = [self.list_IDs[k] for k in indexes]
+        batch_list_IDs = [self.list_IDs[k] for k in indexes]
 
         # Generate data
-        X = self._generate_X(list_IDs_temp)
+        X = [myUtils.load_nifti_image(self.image_path+id) for id in batch_list_IDs]
 
         if self.to_fit:
-            y = self._generate_y(list_IDs_temp)
+            y = [myUtils.load_nifti_image(self.mask_path+id) for id in batch_list_IDs]
             return X, y
         else:
             return X

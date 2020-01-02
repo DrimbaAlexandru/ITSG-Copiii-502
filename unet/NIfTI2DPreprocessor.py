@@ -2,7 +2,8 @@ import os
 import warnings
 
 import numpy as np
-import nibabel as nib
+import utils.utils as myUtils
+
 from tqdm import tqdm
 from skimage.io import  imsave
 from skimage.transform import resize
@@ -11,7 +12,7 @@ from skimage.color import gray2rgb
 warnings.filterwarnings('ignore', category=UserWarning, module='skimage')
 
 
-class NIfTIPreprocessor:
+class NIfTI2DPreprocessor:
     def __init__(self, width, height, channels, train_path_in, test_path_in, train_path_out, test_path_out, test_labeled=False ):
         self.IMG_WIDTH = width
         self.IMG_HEIGHT = height
@@ -45,10 +46,7 @@ class NIfTIPreprocessor:
             # Process images
             print( "Exporting image %d/%d" % ( n+1, len(train_image_ids) ), flush=True )
 
-            proxy_img = nib.load( self.TRAIN_PATH + 'images/' + id_)
-            canonical_img = nib.as_closest_canonical(proxy_img)
-            
-            image_data = canonical_img.get_fdata()
+            image_data, _ = myUtils.load_nifti_image( self.TRAIN_PATH + 'images/' + id_)
             min_max = ( image_data.min(), image_data.max() )
 
             numslices0 = image_data.shape[ 0 ]
@@ -88,10 +86,7 @@ class NIfTIPreprocessor:
                 imsave( self.PREPROCESSED_TRAIN_PATH + "images/AXIS2-%s-%04d.png" % (name, k), img )
 
             # Process masks
-            proxy_img = nib.load( self.TRAIN_PATH + 'masks/' + name + "-label.nii.gz")
-            canonical_img = nib.as_closest_canonical(proxy_img)
-            
-            image_data = canonical_img.get_fdata()
+            image_data, _ = myUtils.load_nifti_image( self.TRAIN_PATH + 'masks/' + name + "-label.nii.gz")
             min_max = ( image_data.min(), image_data.max() )
            
             numslices0 = image_data.shape[ 0 ]
@@ -135,10 +130,7 @@ class NIfTIPreprocessor:
             # Process images
             print( "Exporting image %d/%d" % ( n+1, len(test_image_ids) ), flush=True )
 
-            proxy_img = nib.load( self.TEST_PATH + 'images/' + id_)
-            canonical_img = nib.as_closest_canonical(proxy_img)
-
-            image_data = canonical_img.get_fdata()
+            image_data, _ = myUtils.load_nifti_image( self.TEST_PATH + 'images/' + id_)
             min_max = ( image_data.min(), image_data.max() )
 
             numslices0 = image_data.shape[ 0 ]
@@ -181,10 +173,7 @@ class NIfTIPreprocessor:
                 continue
 
             # Process masks
-            proxy_img = nib.load( self.TEST_PATH + 'masks/' + name + "-label.nii.gz")
-            canonical_img = nib.as_closest_canonical(proxy_img)
-
-            image_data = canonical_img.get_fdata()
+            image_data, _ = myUtils.load_nifti_image( self.TEST_PATH + 'masks/' + name + "-label.nii.gz")
             min_max = ( image_data.min(), image_data.max() )
 
             numslices0 = image_data.shape[ 0 ]

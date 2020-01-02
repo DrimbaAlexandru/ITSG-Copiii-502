@@ -75,7 +75,6 @@ class Unet_model:
 
         self.VALIDATION_SPLIT = 0.2
 
-        self.metrics = {}
         self.epochs_measured = 0
         self.tensorboard = TensorBoard(log_dir=self.LOG_DIR, histogram_freq=1)
 
@@ -249,34 +248,6 @@ class Unet_model:
             masks[ i ] = self._prediction_to_mask( img )
         return masks
 
-    def predict_one(self, path_in, path_out=None ):
-        input_images  = np.zeros( ( 1,  self.IMG_SIZE, self.IMG_SIZE, self.IMG_CHANNELS ), dtype=np.uint8)
-        input_images[0] = imread( path_in )[:,:,:self.IMG_CHANNELS]
-        preds = self.model.predict(input_images, verbose=0)
-        preds_mask = self._predictions_to_mask(preds)
-        if path_out is not None:
-            imsave(path_out, preds_mask[0])
-
-        return preds_mask[0]
-
-    def predict_all(self, base_folder, write_output=True):
-        # Get IDs
-        # Returns a list of file names in the given path
-        ids = next( os.walk( base_folder + "images/" ) )[2]
-
-        pred_masks = np.zeros( ( len( ids ), self.IMG_SIZE, self.IMG_SIZE, self.NUM_CLASSES ), dtype=np.uint8)
-
-        if write_output:
-            os.makedirs(base_folder + "masks_generated/",exist_ok=True)
-
-        for n, id_ in tqdm(enumerate(ids), total=len(ids)):
-            pred_masks[n] = self.predict_one(base_folder + "images/" + id_,
-                                             base_folder + "masks_generated/" + id_ if write_output else None )
-        return pred_masks
-
-    def predict_from_model( self ):
-        self.predict_all(self.PREPROCESSED_TEST_PATH,True)
-        
     def predict_volume( self, img ):
         original_size = img.shape[:3]
         original_channel_nr = img.shape[3] if len(img.shape)==4 else 0
@@ -296,62 +267,3 @@ class Unet_model:
             generated_mask_resized = rgb2gray(generated_mask_resized)
 
         return generated_mask_resized
-
-
-    def evaluate_model(self):
-
-        input_learn = self.train_images[int(self.train_images.shape[0] * self.VALIDATION_SPLIT ):]
-        input_val   = self.train_images[:int(self.train_images.shape[0] * self.VALIDATION_SPLIT )]
-
-        masks_learn = self.train_masks[int(self.train_images.shape[0] * self.VALIDATION_SPLIT ):]
-        masks_val  = self.train_masks[:int(self.train_images.shape[0] * self.VALIDATION_SPLIT )]
-
-        metrics_learn = self.model.evaluate(input_learn,masks_learn,batch_size=16)
-        metrics_val = self.model.evaluate(input_val,masks_val,batch_size=16)
-
-        self.metrics[self.epochs_measured]=[]
-        self.metrics[self.epochs_measured].append(metrics_learn[1:3])
-        self.metrics[self.epochs_measured].append(metrics_val[1:3])
-
-        if( self.IS_TEST_DATA_LABELED ):
-            metrics_test = self.model.evaluate(self.test_images,self.test_masks,batch_size=16)
-            self.metrics[self.epochs_measured].append(metrics_test[1:3])
-
-
-    def write_model_metrics(self):
-        resultsFile = open(self.LOG_DIR + "\\results.txt", "w")
-
-        resultsFile.write("Number of learning samples: " + str( self.train_images.shape[0] * ( 1 - self.VALIDATION_SPLIT ) ) )
-        resultsFile.write("\nNumber of validation samples: " + str( self.train_images.shape[0] * self.VALIDATION_SPLIT ) )
-        if( self.IS_TEST_DATA_LABELED ):
-            resultsFile.write("\nNumber of testing samples: " + str( len(self.test_images) ) )
-
-        resultsFile.write("\nLearning results:" )
-        resultsFile.write("\n  IoU,   Dice\n")
-        for epoch in range(0,self.epochs_measured+1):
-            if epoch in self.metrics:
-                for metric in self.metrics[epoch][0]:
-                    resultsFile.write( str( metric )+ ", " )
-                resultsFile.write("\n")
-        resultsFile.write("\n")
-
-        resultsFile.write("\nValidation results:" )
-        resultsFile.write("\n  IoU,   Dice\n")
-        for epoch in range(0,self.epochs_measured+1):
-            if epoch in self.metrics:
-                for metric in self.metrics[epoch][1]:
-                    resultsFile.write( str( metric )+ ", " )
-                resultsFile.write("\n")
-        resultsFile.write("\n")
-
-        if( self.IS_TEST_DATA_LABELED ):
-            resultsFile.write("\nTesting results:" )
-            resultsFile.write("\n  IoU,   Dice\n")
-            for epoch in range(0,self.epochs_measured+1):
-                if epoch in self.metrics:
-                    for metric in self.metrics[epoch][2]:
-                        resultsFile.write( str( metric )+ ", " )
-                    resultsFile.write("\n")
-            resultsFile.write("\n")
-
-            resultsFile.close()

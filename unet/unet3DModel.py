@@ -4,12 +4,9 @@ import warnings
 import datetime
 
 import numpy as np
-import nibabel as nib
 
 from tqdm import tqdm
-from skimage.io import imread, imsave, imshow
 from skimage.transform import resize
-from skimage.color import gray2rgb, rgb2gray
 
 from keras.models import Model, load_model
 from keras.layers import Input
@@ -19,6 +16,8 @@ from keras.layers.pooling import MaxPooling3D
 from keras.layers.merge import concatenate
 from keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
 from keras import backend as K
+
+import utils.utils as myUtils
 
 warnings.filterwarnings('ignore', category=UserWarning, module='skimage')
 seed = 42
@@ -73,24 +72,10 @@ class Unet_3d_model:
 
         self.VALIDATION_SPLIT = 0.1
 
-        self.metrics = {}
         self.epochs_measured = 0
         self.tensorboard = TensorBoard(log_dir=self.LOG_DIR, histogram_freq=1)
 
         self.ones = np.ones( ( self.IMG_SIZE, self.IMG_SIZE, self.IMG_SIZE, 1 ), dtype=np.uint8 )
-
-    def _load_image( self, path ):
-        proxy_img = nib.load( path )
-        canonical_img = nib.as_closest_canonical(proxy_img)
-
-        image_data = canonical_img.get_fdata()
-        min_max = ( image_data.min(), image_data.max() )
-
-        image_data = image_data * ( 255 / min_max[1] )
-        image_data = image_data.astype(np.uint8)
-        image_data = np.expand_dims( image_data, axis=-1 )
-
-        return image_data
 
     def mask_to_classes( self, mask ):
         classes = np.zeros( ( self.NUM_CLASSES, self.IMG_SIZE, self.IMG_SIZE, self.IMG_SIZE ), dtype=np.bool )
@@ -126,10 +111,10 @@ class Unet_3d_model:
         for n, id_ in tqdm(enumerate(train_ids), total=len(train_ids)):
             name = id_.split('.')[0]
 
-            img = self._load_image( self.PREPROCESSED_TRAIN_PATH + "images/" + id_ )
+            img = myUtils.load_and_prepare_nifti_image(self.PREPROCESSED_TRAIN_PATH + "images/" + id_)
             self.train_images[n] = img
 
-            mask = self._load_image( self.PREPROCESSED_TRAIN_PATH + 'masks/' + id_ )
+            mask = myUtils.load_and_prepare_nifti_image(self.PREPROCESSED_TRAIN_PATH + 'masks/' + id_)
             self.train_masks[ n ] = self.mask_to_classes(mask)
 
     def load_testing_images( self ):
@@ -146,11 +131,11 @@ class Unet_3d_model:
         for n, id_ in tqdm(enumerate(test_ids), total=len(test_ids)):
             name = id_.split('.')[0]
 
-            img = self._load_image( self.PREPROCESSED_TEST_PATH + "images/" + id_ )
+            img = myUtils.load_and_prepare_nifti_image(self.PREPROCESSED_TEST_PATH + "images/" + id_)
             self.test_images[n] = img
 
             if self.IS_TEST_DATA_LABELED:
-                mask = self._load_image( self.PREPROCESSED_TEST_PATH + 'masks/' + id_ )
+                mask = myUtils.load_and_prepare_nifti_image(self.PREPROCESSED_TEST_PATH + 'masks/' + id_)
                 self.test_masks[ n ] = self.mask_to_classes(mask)
 
     def save_model( self ):
@@ -271,62 +256,3 @@ class Unet_3d_model:
         generated_mask_resized = resize(generated_mask, original_size, mode='edge', preserve_range=True, order = 0, anti_aliasing = False )
 
         return generated_mask_resized
-
-
-    def evaluate_model(self):
-
-        input_learn = self.train_images[int(self.train_images.shape[0] * self.VALIDATION_SPLIT ):]
-        input_val   = self.train_images[:int(self.train_images.shape[0] * self.VALIDATION_SPLIT )]
-
-        masks_learn = self.train_masks[int(self.train_images.shape[0] * self.VALIDATION_SPLIT ):]
-        masks_val  = self.train_masks[:int(self.train_images.shape[0] * self.VALIDATION_SPLIT )]
-
-        metrics_learn = self.model.evaluate(input_learn,masks_learn,batch_size=1)
-        metrics_val = self.model.evaluate(input_val,masks_val,batch_size=1)
-
-        self.metrics[self.epochs_measured]=[]
-        self.metrics[self.epochs_measured].append(metrics_learn[1:3])
-        self.metrics[self.epochs_measured].append(metrics_val[1:3])
-
-        if( self.IS_TEST_DATA_LABELED ):
-            metrics_test = self.model.evaluate(self.test_images,self.test_masks,batch_size=1)
-            self.metrics[self.epochs_measured].append(metrics_test[1:3])
-
-
-    def write_model_metrics(self):
-        resultsFile = open(self.LOG_DIR + "\\results.txt", "w")
-
-        resultsFile.write("Number of learning samples: " + str( self.train_images.shape[0] * ( 1 - self.VALIDATION_SPLIT ) ) )
-        resultsFile.write("\nNumber of validation samples: " + str( self.train_images.shape[0] * self.VALIDATION_SPLIT ) )
-        if( self.IS_TEST_DATA_LABELED ):
-            resultsFile.write("\nNumber of testing samples: " + str( len(self.test_images) ) )
-
-        resultsFile.write("\nLearning results:" )
-        resultsFile.write("\n  IoU,   Dice\n")
-        for epoch in range(0,self.epochs_measured+1):
-            if epoch in self.metrics:
-                for metric in self.metrics[epoch][0]:
-                    resultsFile.write( str( metric )+ ", " )
-                resultsFile.write("\n")
-        resultsFile.write("\n")
-
-        resultsFile.write("\nValidation results:" )
-        resultsFile.write("\n  IoU,   Dice\n")
-        for epoch in range(0,self.epochs_measured+1):
-            if epoch in self.metrics:
-                for metric in self.metrics[epoch][1]:
-                    resultsFile.write( str( metric )+ ", " )
-                resultsFile.write("\n")
-        resultsFile.write("\n")
-
-        if( self.IS_TEST_DATA_LABELED ):
-            resultsFile.write("\nTesting results:" )
-            resultsFile.write("\n  IoU,   Dice\n")
-            for epoch in range(0,self.epochs_measured+1):
-                if epoch in self.metrics:
-                    for metric in self.metrics[epoch][2]:
-                        resultsFile.write( str( metric )+ ", " )
-                    resultsFile.write("\n")
-            resultsFile.write("\n")
-
-            resultsFile.close()
