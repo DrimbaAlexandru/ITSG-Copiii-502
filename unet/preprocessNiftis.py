@@ -3,10 +3,8 @@ import warnings
 
 import numpy as np
 import nibabel as nib
-from tqdm import tqdm
-from skimage.io import  imsave
 from skimage.transform import resize
-from skimage.color import gray2rgb
+from tqdm import tqdm
 
 warnings.filterwarnings('ignore', category=UserWarning, module='skimage')
 
@@ -31,21 +29,39 @@ class NIfTIsPreprocessor:
         os.makedirs(self.PREPROCESSED_TEST_PATH + 'images/', exist_ok=True)
         os.makedirs(self.PREPROCESSED_TEST_PATH + 'masks/', exist_ok=True)
 
-    def handicapeaza(self, img_path_in, img_path_out, coord1, coord2, skew ):
+    def distort(self, img_path_in, img_path_out, top_left, lengths, skew, dither = False ):
 
         proxy_img = nib.load( img_path_in )
         canonical_img = nib.as_closest_canonical(proxy_img)
-        lengths = ( coord2[0] - coord1[0], coord2[1] - coord1[1], coord2[2] - coord1[2] )
         image_data = canonical_img.get_fdata()
+        shape = image_data.shape[:]
+        src_coords = np.zeros((3))
+
+        if top_left is None:
+            top_left = ( 0, 0, 0 )
+        if lengths is None:
+            lengths = np.array(shape) - np.array(top_left)
+
         img_data_out = np.zeros(lengths)
 
-        for i in range( 0, lengths[0] ):
-            for j in range( 0, lengths[1] ):
-                for k in range( 0, lengths[2] ):
-                    img_data_out[i][j][k] = image_data [ i + coord1[0] + int(skew[0])//lengths[0]]   \
-                                                       [ j + coord1[1] + int(skew[1])//lengths[1]]   \
-                                                       [ k + coord1[2] + int(skew[2])//lengths[2]]
+        for x in tqdm(range(0, lengths[0]), total=lengths[0]):
+            for y in range(0, lengths[1]):
+                for z in range(0, lengths[2]):
+                    src_coords[0] = x + top_left[0] + skew[0] * (y + z)
+                    src_coords[1] = y + top_left[1] + skew[1] * (x + z)
+                    src_coords[2] = z + top_left[2] + skew[2] * (x + y)
 
+                    if(0 <= src_coords[0] < shape[0] - 1
+                   and 0 <= src_coords[1] < shape[1] - 1
+                   and 0 <= src_coords[2] < shape[2] - 1):
+                        src_coords_ints = np.floor(src_coords).astype(np.int16)
+                        img_data_out[x][y][z] = image_data[src_coords_ints[0]][src_coords_ints[1]][src_coords_ints[2]]
+                        src_coords_dec = src_coords - src_coords_ints
+                        if dither and ( src_coords_dec[0]>=0.7 or src_coords_dec[1]>=0.7 or src_coords_dec[2]>=0.7 ):
+                            img_data_out[x][y][z] *= 1 - np.sum(src_coords_dec)/3
+                            img_data_out[x][y][z] += src_coords_dec[0]/3 * image_data[src_coords_ints[0] + 1][ src_coords_ints[1], src_coords_ints[2]] + \
+                                                     src_coords_dec[1]/3 * image_data[src_coords_ints[0]][src_coords_ints[1] + 1][src_coords_ints[2]] + \
+                                                     src_coords_dec[2]/3 * image_data[src_coords_ints[0]][src_coords_ints[1]][src_coords_ints[2] + 1]
         img = nib.Nifti1Image(img_data_out, canonical_img.affine)
         img.to_filename( img_path_out )
         nib.save(img, img_path_out )

@@ -2,6 +2,7 @@ from unet.preprocessNiftis import NIfTIsPreprocessor
 from unet.unetModel import Unet_model
 from unet.unet3DModel import Unet_3d_model
 
+import numpy as np
 import random
 
 # Set some parameters
@@ -14,17 +15,69 @@ PREPROCESSED_TEST_PATH = "./unet/input/NIfTI/testing/"
 TEST_DATA_LABELED = True
 
 needs_preprocess = True
+needs_augmentation = True
 
+images_coords = {
+    # "training_axial_full_pat0" : [((0, 130, 135), (150, 130, 205), (0, 0, 0))],
+    #
+    # "training_axial_full_pat1" : [((0, 140, 110), (145, 120, 210), (0, 0, 0))],
+    #
+    # "training_axial_full_pat2" : [((0, 120, 85), (180, 120, 210), (0, 0, 0))],
+    #
+    # "training_axial_full_pat3" : [((0, 120, 110), (150, 135, 170), (0, 0, 0))],
+    #
+    # "training_axial_full_pat4" : [((0, 95, 105), (125, 80, 105), (0, 0, 0))],
+
+    "training_axial_full_pat5" : [((0, 95, 75), (165, 85, 110), (0, 0, 0))],
+
+    "training_axial_full_pat6" : [((0, 215, 185), (140, 120, 180), (0, 0, 0))],
+
+    "training_axial_full_pat7" : [((0, 200, 180), (185, 155, 240), (0, 0, 0))],
+
+    "training_axial_full_pat8" : [((0, 140, 125), (140, 125, 190), (0, 0, 0))],
+
+    "training_axial_full_pat9" : [((0, 135, 100), (175, 150, 215), (0, 0, 0))]
+}
+
+preprocessor = NIfTIsPreprocessor( IMG_SIZE, TRAIN_PATH, TEST_PATH, PREPROCESSED_TRAIN_PATH, PREPROCESSED_TEST_PATH, TEST_DATA_LABELED )
+
+if needs_augmentation:
+    for img_name in images_coords:
+        for aug in range(3):
+            new_corner_offset = np.array(( 0,
+                                           int(random.random()*10 - 3),
+                                           int(random.random()*10 - 3)))
+            new_lengths_offset = np.array(( int(random.random()*10 - 3),
+                                            int(random.random()*10 - 3),
+                                            int(random.random()*10 - 3)))
+            el = ( np.array(images_coords[img_name][0][0])-new_corner_offset,
+                   np.array(images_coords[img_name][0][1]) + new_corner_offset + new_lengths_offset,
+                   None )
+            images_coords[img_name].append(el)
+
+        for i, (top_left, lengths, skew) in enumerate(images_coords[img_name]):
+            print("Processing variation "+str(i+1)+" on "+img_name)
+            dither = skew is None
+            if skew is None:
+                skew = ( random.random()*0.2-0.1, random.random()*0.2-0.1, random.random()*0.2-0.1 )
+
+            # Distort the training image
+            preprocessor.distort("D:/git/ITSG-Copiii-502/unet/dataset/Training dataset/"+img_name+".nii.gz",
+                                 TRAIN_PATH+"images/"+img_name+"_"+str(i)+".nii.gz",
+                                 top_left,
+                                 lengths,
+                                 skew,
+                                 dither)
+
+            # Distort its maks using the same parameters
+            preprocessor.distort("D:/git/ITSG-Copiii-502/unet/dataset/Ground truth/"+img_name+"-label.nii.gz",
+                                 TRAIN_PATH+"masks/"+img_name+"_"+str(i)+"-label.nii.gz",
+                                 top_left,
+                                 lengths,
+                                 skew,
+                                 False)
+exit()
 if needs_preprocess:
-    preprocessor = NIfTIsPreprocessor( IMG_SIZE, TRAIN_PATH, TEST_PATH, PREPROCESSED_TRAIN_PATH, PREPROCESSED_TEST_PATH, TEST_DATA_LABELED )
-
-    # for i in range( 0, 1 ):
-    #     preprocessor.handicapeaza("D:/git/ITSG-Copiii-502/unet/input/NIfTI/NIfTIs/Training dataset/training_axial_full_pat"+str(i)+".nii.gz",
-    #                               "D:/git/ITSG-Copiii-502/unet/input/NIfTI/NIfTIs/training/training_axial_full_pat"+str(i)+"_0.nii.gz",
-    #                               coords1[i],
-    #                               coords2[i],
-    #                               (0,random.random()*40-20,random.random()*40-20))
-
     preprocessor.preprocess()
 
 model = Unet_3d_model( IMG_SIZE,
