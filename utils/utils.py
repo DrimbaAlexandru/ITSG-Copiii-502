@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import nibabel as nib
 
@@ -23,7 +25,7 @@ def load_and_prepare_nifti_image(path):
     return image_data
 
 
-def evaluate_model(model, batch_size):
+def evaluate_model(model, metrics, batch_size):
     input_learn = model.train_images[int(model.train_images.shape[0] * model.VALIDATION_SPLIT ):]
     input_val   = model.train_images[:int(model.train_images.shape[0] * model.VALIDATION_SPLIT )]
 
@@ -33,23 +35,47 @@ def evaluate_model(model, batch_size):
     metrics_learn = model.model.evaluate(input_learn,masks_learn,batch_size=batch_size)
     metrics_val = model.model.evaluate(input_val,masks_val,batch_size=batch_size)
 
-    metrics = {}
+    metrics["learn_size"] = len(input_learn)
+    metrics["validation_size"] = len(input_val)
+
     metrics[model.epochs_measured]=[]
     metrics[model.epochs_measured].append(metrics_learn[1:3])
     metrics[model.epochs_measured].append(metrics_val[1:3])
 
     if model.IS_TEST_DATA_LABELED:
         metrics_test = model.model.evaluate(model.test_images,model.test_masks,batch_size=batch_size)
+        metrics["test_size"] = len(model.test_images)
+
         metrics[model.epochs_measured].append(metrics_test[1:3])
-        
+
+    return metrics
+
+
+def evaluate_model_generator(model, metrics):
+    metrics_learn = model.model.evaluate_generator( generator=model.learning_generator )
+    metrics_val = model.model.evaluate_generator( generator=model.validation_generator )
+    metrics["learn_size"] = model.learning_generator.get_item_count()
+    metrics["validation_size"] = model.validation_generator.get_item_count()
+
+    metrics[model.epochs_measured]=[]
+    metrics[model.epochs_measured].append(metrics_learn[1:3])
+    metrics[model.epochs_measured].append(metrics_val[1:3])
+
+    if model.IS_TEST_DATA_LABELED:
+        metrics_test = model.model.evaluate_generator( generator=model.test_generator )
+        metrics["test_size"] = model.test_generator.get_item_count()
+
+        metrics[model.epochs_measured].append(metrics_test[1:3])
+
         
 def write_model_metrics(model, metrics):
+    os.makedirs(model.LOG_DIR)
     resultsFile = open(model.LOG_DIR + "\\results.txt", "w")
 
-    resultsFile.write("Number of learning samples: " + str( model.train_images.shape[0] * ( 1 - model.VALIDATION_SPLIT ) ) )
-    resultsFile.write("\nNumber of validation samples: " + str( model.train_images.shape[0] * model.VALIDATION_SPLIT ) )
+    resultsFile.write("Number of learning samples: " + str(metrics["learn_size"]) )
+    resultsFile.write("\nNumber of validation samples: " + str(metrics["validation_size"]) )
     if model.IS_TEST_DATA_LABELED:
-        resultsFile.write("\nNumber of testing samples: " + str( len(model.test_images) ) )
+        resultsFile.write("\nNumber of testing samples: " + str(metrics["test_size"]) )
 
     resultsFile.write("\nLearning results:" )
     resultsFile.write("\n  IoU,   Dice\n")

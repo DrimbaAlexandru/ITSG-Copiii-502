@@ -1,12 +1,15 @@
 from unet.NIfTI3DPreprocessor import NIfTI3DPreprocessor
-from unet.unetModel import Unet_model
-from unet.unet3DModel import Unet_3d_model
+from unet.unet2DModel import Unet2DModel
+from unet.unet3DModel import Unet3DModel
+from unet.unet3DModelWithGenerator import Unet3DModelWithGenerator
 
 import numpy as np
 import random
 
+import utils.utils as myUtils
+
 # Set some parameters
-IMG_SIZE = 96
+IMG_SIZE = 64
 IMG_CHANNELS = 3
 TRAIN_PATH = './unet/input/NIfTI/NIfTIs/training/'
 TEST_PATH = './unet/input/NIfTI/NIfTIs/testing/'
@@ -14,19 +17,19 @@ PREPROCESSED_TRAIN_PATH = "./unet/input/NIfTI/training/"
 PREPROCESSED_TEST_PATH = "./unet/input/NIfTI/testing/"
 TEST_DATA_LABELED = True
 
-needs_preprocess = True
-needs_augmentation = True
+needs_preprocess = False
+needs_augmentation = False
 
 images_coords = {
-    # "training_axial_full_pat0" : [((0, 130, 135), (150, 130, 205), (0, 0, 0))],
-    #
-    # "training_axial_full_pat1" : [((0, 140, 110), (145, 120, 210), (0, 0, 0))],
-    #
-    # "training_axial_full_pat2" : [((0, 120, 85), (180, 120, 210), (0, 0, 0))],
-    #
-    # "training_axial_full_pat3" : [((0, 120, 110), (150, 135, 170), (0, 0, 0))],
-    #
-    # "training_axial_full_pat4" : [((0, 95, 105), (125, 80, 105), (0, 0, 0))],
+    "training_axial_full_pat0" : [((0, 130, 135), (150, 130, 205), (0, 0, 0))],
+
+    "training_axial_full_pat1" : [((0, 140, 110), (145, 120, 210), (0, 0, 0))],
+
+    "training_axial_full_pat2" : [((0, 120, 85), (180, 120, 210), (0, 0, 0))],
+
+    "training_axial_full_pat3" : [((0, 120, 110), (150, 135, 170), (0, 0, 0))],
+
+    "training_axial_full_pat4" : [((0, 95, 105), (125, 80, 105), (0, 0, 0))],
 
     "training_axial_full_pat5" : [((0, 95, 75), (165, 85, 110), (0, 0, 0))],
 
@@ -76,28 +79,27 @@ if needs_augmentation:
                                  lengths,
                                  skew,
                                  False)
-exit()
+
 if needs_preprocess:
     preprocessor.preprocess()
 
-model = Unet_3d_model( IMG_SIZE,
-                       TRAIN_PATH,
-                       TEST_PATH,
-                       PREPROCESSED_TRAIN_PATH,
-                       PREPROCESSED_TEST_PATH,
-                       TEST_DATA_LABELED,
-                       [ ( (0), "Background" ), ( (127), "Ventricular Myocardum" ), ( (255), "Blood Pool" ) ] )
+model = Unet3DModelWithGenerator([ ( (0), "Background" ), ( (127), "Ventricular Myocardum" ), ( (255), "Blood Pool" ) ],
+                                 IMG_SIZE,
+                                 TRAIN_PATH,
+                                 TEST_PATH,
+                                 PREPROCESSED_TRAIN_PATH,
+                                 PREPROCESSED_TEST_PATH,
+                                 TEST_DATA_LABELED)
+metrics = {}
 
-model.load_training_images()
-model.load_testing_images()
 model.create_model()
 #model.load_model()
-for i in range( 0, 1 ):
-    model.fit_model( 100 )
+for i in range( 0, 20 ):
+    model.fit_model( 5 )
     model.save_model()
     #model.predict_from_model()
-    model.evaluate_model()
-model.write_model_metrics()
+    myUtils.evaluate_model_generator(model,metrics)
+myUtils.write_model_metrics(model,metrics)
 #result = model.predict_volume( image_data )
 
 # Adaugare metrici

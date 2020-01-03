@@ -46,7 +46,7 @@ def iou_coef_loss(yt,yp,smooth=1):
 def dice_coef_loss(yt,yp,smooth=1):
     return 1 - dice_coef(yt,yp,smooth)
 
-class Unet_3d_model:
+class Unet3DModel:
     def __init__( self,
                   size,
                   train_path_in,

@@ -2,12 +2,11 @@ import os
 
 import tkinter as tk
 from niiPlot import MRI_plot
-from unet.unetModel import Unet_model
+from unet.unet3DModelWithGenerator import Unet3DModelWithGenerator
 
 import utils.utils as myUtils
 
 class App:
-    IMG_CHANNELS = 3
     RESULTS_PATH = "./output/"
     #Class variables
     root = None
@@ -55,15 +54,10 @@ class App:
         
         self._init_model()
 
-
     def _init_model( self ):
-        self.model = Unet_model( 3,
-                                 None,
-                                 None,
-                                 None,
-                                 None,
-                                 None,
-                                 [ ( ( 0, 0, 0 ), "Background" ), ( ( 127, 127, 127 ), "Ventricular Myocardum" ), ( ( 255, 255, 255 ), "Blood Pool" ) ] )
+        IMG_SIZE = 64
+        self.model = Unet3DModelWithGenerator([ ( (0), "Background" ), ( (127), "Ventricular Myocardum" ), ( (255), "Blood Pool" ) ],
+                                              IMG_SIZE)
         self.model.load_model()
 
     def _init_menus( self ):
@@ -90,7 +84,7 @@ class App:
             self._display_nifti_image()
 
     def _generate_mask( self ):
-        print("Generate mask");
+        print("Generate mask")
 
         if self.image_path == "" :
             return
