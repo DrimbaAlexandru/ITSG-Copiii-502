@@ -3,7 +3,7 @@ import random
 import warnings
 import datetime
 
-from skimage.transform import resize
+from skimage.transform import resize, rescale
 
 from keras.models import Model, load_model
 from keras.layers import Input
@@ -207,7 +207,8 @@ class Unet3DModelWithGenerator:
 
     # prediction has the shape x y z m
     def _prediction_to_mask( self, prediction ):
-        mask = np.zeros( ( self.IMG_SIZE, self.IMG_SIZE,  self.IMG_SIZE, 1 ), dtype=np.uint8 )
+        dims = prediction.shape[:3] + (1,)
+        mask = np.zeros( dims, dtype=np.uint8 )
         idxs = np.argmax( prediction, axis=-1 )
         for cn, ( k, _ ) in enumerate( self.CLASSES ):
             mask[ idxs == cn ] = k
@@ -222,19 +223,20 @@ class Unet3DModelWithGenerator:
 
     def predict_volume( self, img ):
         original_size = img.shape[:]
+        upscale_factor=(original_size[0]/self.IMG_SIZE,original_size[1]/self.IMG_SIZE,original_size[2]/self.IMG_SIZE)
 
         img = img * ( 255 / img.max() )
 
-        resized_data = resize(img, (self.IMG_SIZE,self.IMG_SIZE,self.IMG_SIZE), mode='edge', preserve_range=True, order = 1, anti_aliasing = False)
+        resized_data = resize(img, (self.IMG_SIZE,self.IMG_SIZE,self.IMG_SIZE), mode='edge', preserve_range=True, order = 1, anti_aliasing = True)
         resized_data = resized_data.astype(np.uint8)
 
         resized_data = np.array([np.expand_dims( resized_data, axis=-1 )])
 
         preds = self.model.predict(resized_data, verbose=1)
 
-        generated_masks = self._predictions_to_mask(preds)
-        generated_mask = generated_masks[0]
+        pred_resized = rescale(preds[0],upscale_factor,multichannel=True, mode='edge', preserve_range=True, order = 1, anti_aliasing = False)
+        generated_mask = self._prediction_to_mask(pred_resized)
         generated_mask = np.squeeze(generated_mask,-1)
-        generated_mask_resized = resize(generated_mask, original_size, mode='edge', preserve_range=True, order = 0, anti_aliasing = False )
+        #generated_mask_resized = resize(generated_mask, original_size, mode='edge', preserve_range=True, order = 0, anti_aliasing = False )
 
-        return generated_mask_resized
+        return generated_mask

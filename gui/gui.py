@@ -37,6 +37,9 @@ class AppGUI:
         # self._init_window()
         self._service = AppService()
         self._controls = ControlsComponent(self.root, self._service)
+        self.plot_canvas = MRIPlotComponent(self.root, self._service)
+        self._controls.set_plot_canvas(self.plot_canvas)
+
         webbrowser.register(name='chrome', klass=webbrowser.Chrome('chrome'))
 
     def _init_menus(self):
@@ -76,8 +79,4 @@ class AppGUI:
         print("Not yet implemented")
 
     def _display_nifti_image(self):
-        if self.plot_canvas is None or (not self.plot_canvas.is_window_showing):
-            self.plot_canvas = MRIPlotComponent(self.root, self._service, self.image_path, self.label_path)
-            self._controls.set_plot_canvas(self.plot_canvas)
-        else:
-            self.plot_canvas.set_image_paths(self.image_path, self.label_path)
+        self.plot_canvas.set_image_paths(self.image_path, self.label_path)

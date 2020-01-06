@@ -29,13 +29,20 @@ class MRIPlotComponent:
     _plot_canvas = None
     _plot_artists = []
 
-    is_window_showing = False
     _is_mask_displayed = True
 
-    def __init__(self, root, app_service: AppService, image_path, mask_path, transparency=None):
+    def __init__(self, root, app_service: AppService, transparency=None):
         self.root = root
         self._app_service = app_service
-        self.set_image_paths(image_path, mask_path, transparency)
+
+        self._plot_canvas, self._plot_axes = plt.subplots(nrows=1, ncols=3)
+
+        #plt.ion()
+        canvas = FigureCanvasTkAgg(self._plot_canvas, master=self.root)  # A tk.DrawingArea.
+        canvas.draw()
+        canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
+        canvas.mpl_connect('pick_event', self._on_pick)
+        canvas.mpl_connect('close_event', self._handle_close)
 
     def set_image_paths(self, image_path, mask_path, transparency=None):
         self._base_image_path = image_path
@@ -68,14 +75,6 @@ class MRIPlotComponent:
             self._mask_image_data = None
 
         self._display_current_frame()
-        self._plot_canvas.canvas.mpl_connect('pick_event', self._on_pick)
-        if not self.is_window_showing:
-            self._plot_canvas.canvas.mpl_connect('close_event', self._handle_close)
-            plt.ion()
-            canvas = FigureCanvasTkAgg(self._plot_canvas, master=self.root)  # A tk.DrawingArea.
-            canvas.draw()
-            canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
-            self.is_window_showing = True
 
     def set_mask_transparency(self, new_transparency):
         self._mask_transparency = new_transparency
@@ -88,13 +87,9 @@ class MRIPlotComponent:
         self._display_current_frame()
 
     def _handle_close(self, evt):
-        self.is_window_showing = False
         plt.close('all')
 
     def _display_current_frame(self):
-        if self._plot_canvas is None:
-            self._plot_canvas, self._plot_axes = plt.subplots(nrows=1, ncols=3)
-
         slices = [self._base_image_data[self._axial_pos, :, :],
                   self._base_image_data[:, self._sagittal_pos, :],
                   self._base_image_data[:, :, self._coronal_pos]]
@@ -136,7 +131,7 @@ class MRIPlotComponent:
         mouse_event = event.mouseevent
         artist = event.artist
         delta = 0
-
+        print("picked")
         if mouse_event.button == 'up':
             delta = 2
         elif mouse_event.button == 'down':
@@ -144,15 +139,15 @@ class MRIPlotComponent:
 
         if delta != 0 and isinstance(artist, AxesImage):
             # Axial plot
-            if artist == self._plot_artists[0]:
+            if artist is self._plot_artists[0]:
                 self._move_slice(delta, 0, 0)
 
             # Saggital plot
-            if artist == self._plot_artists[1]:
+            if artist is self._plot_artists[1]:
                 self._move_slice(0, delta, 0)
 
             # Coronal plot
-            if artist == self._plot_artists[2]:
+            if artist is self._plot_artists[2]:
                 self._move_slice(0, 0, delta)
 
             self._display_current_frame()
