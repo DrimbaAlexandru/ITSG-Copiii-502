@@ -1,4 +1,5 @@
 from unet.unet3DModelWithGenerator import Unet3DModelWithGenerator
+from unet.unet2DModel import Unet2DModel
 from renderer.renderer3d import Renderer3D
 
 import utils.utils as myUtils
@@ -29,10 +30,28 @@ class AppService:
         return self._image_path
 
     def _init_model(self):
+        self.set_3d_model()
+
+    def set_3d_model(self):
+        print("INFO: Set 3D U-Net model")
         self._model = Unet3DModelWithGenerator([((0), "Background"), ((127), "Ventricular Myocardum"),
-                                               ((255), "Blood Pool")],
+                                                ((255), "Blood Pool")],
                                                64)
         self._model.load_model()
+        print("INFO: 3D U-Net model was successfully set")
+
+    def set_2d_model(self):
+        print("INFO: Set 2D U-Net model")
+        self._model = Unet2DModel(3,
+                                  None,
+                                  None,
+                                  None,
+                                  None,
+                                  None,
+                                  [((0, 0, 0), "Background"), ((127, 127, 127), "Ventricular Myocardum"),
+                                   ((255, 255, 255), "Blood Pool")])
+        self._model.load_model()
+        print("INFO: 2D U-Net model was successfully set")
 
     def generate_mask(self, get_path_for_saving_callback, labels_generated_callback, rendered_mask_generated_callback):
         if self._image_path == "":

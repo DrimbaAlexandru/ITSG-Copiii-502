@@ -131,7 +131,6 @@ class MRIPlotComponent:
         mouse_event = event.mouseevent
         artist = event.artist
         delta = 0
-        print("picked")
         if mouse_event.button == 'up':
             delta = 2
         elif mouse_event.button == 'down':

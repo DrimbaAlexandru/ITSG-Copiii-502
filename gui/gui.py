@@ -13,6 +13,7 @@ class AppGUI:
     image_path = ""
     label_path = ""
     plot_canvas = None
+    unet_3d = None
 
     _slider = None
 
@@ -24,13 +25,17 @@ class AppGUI:
         self.root.resizable(1, 1)
         self.root.title("The best project in the whole goddamn world")
 
+        self.unet_3d = tk.BooleanVar(master)
+        self.unet_3d.set(True)
+
+        self.previous_unet_3d = True
+
         # Class constants
         self._menu_file = [("Open NIfTI image", self._on_load_image),
                            ("Open NIfTI image labels", self._on_load_labels),
                            ("Separator", None),
                            ("Exit", self.root.quit)]
-        self._menu_options = [("ML method", self._on_change_ML_method)]
-        self._menus = [("File", self._menu_file), ("Options", self._menu_options)]
+        self._menus = [("File", self._menu_file)]
 
         # Initialize the menu bar
         self._init_menus()
@@ -41,6 +46,10 @@ class AppGUI:
         self._controls.set_plot_canvas(self.plot_canvas)
 
         webbrowser.register(name='chrome', klass=webbrowser.Chrome('chrome'))
+
+    def _change(self):
+        print("changed")
+        print(self.unet_3d.get())
 
     def _init_menus(self):
         # create a toplevel menu
@@ -55,8 +64,30 @@ class AppGUI:
                     file_menu.add_separator()
             self.menubar.add_cascade(label=menuName, menu=file_menu)
 
+        self._init_ml_method_menu()
+
         # display the menu
         self.root.config(menu=self.menubar)
+
+    def _init_ml_method_menu(self):
+        method_menu = tk.Menu(self.menubar, tearoff=0)
+
+        method_menu.add_radiobutton(label="3D U-net model", value=1, variable=self.unet_3d,
+                                    command=self._change_to_3d_model)
+        method_menu.add_radiobutton(label="2D U-net model", value=0, variable=self.unet_3d,
+                                    command=self._change_to_2d_model)
+
+        self.menubar.add_cascade(label="ML Method", menu=method_menu)
+
+    def _change_to_2d_model(self):
+        if self.previous_unet_3d:
+            self._service.set_2d_model()
+            self.previous_unet_3d = False
+
+    def _change_to_3d_model(self):
+        if not self.previous_unet_3d:
+            self._service.set_3d_model()
+            self.previous_unet_3d = True
 
     def _on_load_image(self):
         self.image_path = tk.filedialog.askopenfilename(parent=self.root, initialdir="/", title="Select image file",
@@ -74,9 +105,6 @@ class AppGUI:
         self._service.set_labels_path(self.label_path)
         if self.label_path != "":
             self._display_nifti_image()
-
-    def _on_change_ML_method(self):
-        print("Not yet implemented")
 
     def _display_nifti_image(self):
         self.plot_canvas.set_image_paths(self.image_path, self.label_path)
