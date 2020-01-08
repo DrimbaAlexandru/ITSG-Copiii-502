@@ -1,7 +1,5 @@
-from unet.NIfTI3DPreprocessor import NIfTI3DPreprocessor
-from unet.unet2DModel import Unet2DModel
-from unet.unet3DModel import Unet3DModel
-from unet.unet3DModelWithGenerator import Unet3DModelWithGenerator
+from utils.NIfTI3DPreprocessor import NIfTI3DPreprocessor
+from unet.unet_3D.unet3DModelWithGenerator import Unet3DModelWithGenerator
 
 import numpy as np
 import random

@@ -1,5 +1,5 @@
-from unet.unet3DModelWithGenerator import Unet3DModelWithGenerator
-from unet.unet2DModel import Unet2DModel
+from unet.unet_3D.unet3DModelWithGenerator import Unet3DModelWithGenerator
+from unet.unet_2D.unet2DModel import Unet2DModel
 from renderer.renderer3d import Renderer3D
 
 import utils.utils as myUtils

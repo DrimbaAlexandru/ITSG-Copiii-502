@@ -70,8 +70,8 @@ class Unet2DModel:
         self.PREPROCESSED_TRAIN_PATH = train_path_out
         self.PREPROCESSED_TEST_PATH = test_path_out
 
-        self.MODEL_PATH = "./unet/my_model.h5"
-        self.LOG_DIR = "logs\\fit\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        self.MODEL_PATH = "./unet/unet_2D/my_model.h5"
+        self.LOG_DIR = "unet\\unet_2D\\logs\\fit\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         os.makedirs(self.LOG_DIR)
 
         self.VALIDATION_SPLIT = 0.2

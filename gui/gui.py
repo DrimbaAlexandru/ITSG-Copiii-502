@@ -47,10 +47,6 @@ class AppGUI:
 
         webbrowser.register(name='chrome', klass=webbrowser.Chrome('chrome'))
 
-    def _change(self):
-        print("changed")
-        print(self.unet_3d.get())
-
     def _init_menus(self):
         # create a toplevel menu
         self.menubar = tk.Menu(self.root)
