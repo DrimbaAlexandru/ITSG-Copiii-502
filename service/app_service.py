@@ -14,8 +14,6 @@ class AppService:
         self._renderer = Renderer3D()
         self._on_image_change_callback = None
 
-        self._init_model()
-
     def set_image_path(self, image_path):
         self._image_path = image_path
 
@@ -29,9 +27,6 @@ class AppService:
     def get_image_path(self):
         return self._image_path
 
-    def _init_model(self):
-        self.set_3d_model()
-
     def set_3d_model(self):
         print("INFO: Set 3D U-Net model")
         self._model = Unet3DModelWithGenerator([((0), "Background"), ((127), "Ventricular Myocardum"),
@@ -42,14 +37,10 @@ class AppService:
 
     def set_2d_model(self):
         print("INFO: Set 2D U-Net model")
-        self._model = Unet2DModel(3,
-                                  None,
-                                  None,
-                                  None,
-                                  None,
-                                  None,
-                                  [((0, 0, 0), "Background"), ((127, 127, 127), "Ventricular Myocardum"),
-                                   ((255, 255, 255), "Blood Pool")])
+        self._model = Unet2DModel([((0, 0, 0), "Background"), ((127, 127, 127), "Ventricular Myocardum"),
+                                   ((255, 255, 255), "Blood Pool")],
+                                  128,
+                                  3)
         self._model.load_model()
         print("INFO: 2D U-Net model was successfully set")
 

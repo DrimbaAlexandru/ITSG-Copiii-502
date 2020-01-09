@@ -8,6 +8,6 @@ class App:
         root = tk.Tk()
         AppGUI(root)
         root.mainloop()
-
+        root.destroy()
 
 App()
