@@ -8,14 +8,6 @@ from service.app_service import AppService
 
 class AppGUI:
     IMG_CHANNELS = 3
-    # Class variables
-    root = None
-    image_path = ""
-    label_path = ""
-    plot_canvas = None
-    unet_3d = None
-
-    _slider = None
 
     # Procedures
     def __init__(self, master):
@@ -25,10 +17,11 @@ class AppGUI:
         self.root.resizable(1, 1)
         self.root.title("The best project in the whole goddamn world")
 
-        self.unet_3d = tk.BooleanVar(master)
-        self.unet_3d.set(True)
-
-        self.previous_unet_3d = True
+        self._ml_methods = [ ("3D U-net model", self._set_3D_Unet_model),
+                             ("2D U-net model", self._set_2D_Unet_model)]
+        self._ml_method_idx = tk.IntVar(master)
+        self._ml_method_idx.set(1)
+        self._loaded_ml_method_idx = -1 # Init with invalid idx, so that any new index loads the ML model
 
         # Class constants
         self._menu_file = [("Open NIfTI image", self._on_load_image),
@@ -41,15 +34,15 @@ class AppGUI:
         self._init_menus()
         # self._init_window()
         self._service = AppService()
+        self._set_model()
         self._controls = ControlsComponent(self.root, self._service)
         self.plot_canvas = MRIPlotComponent(self.root, self._service)
         self._controls.set_plot_canvas(self.plot_canvas)
 
-        webbrowser.register(name='chrome', klass=webbrowser.Chrome('chrome'))
+        self.image_path = ""
+        self.label_path = ""
 
-    def _change(self):
-        print("changed")
-        print(self.unet_3d.get())
+        webbrowser.register(name='chrome', klass=webbrowser.Chrome('chrome'))
 
     def _init_menus(self):
         # create a toplevel menu
@@ -72,22 +65,22 @@ class AppGUI:
     def _init_ml_method_menu(self):
         method_menu = tk.Menu(self.menubar, tearoff=0)
 
-        method_menu.add_radiobutton(label="3D U-net model", value=1, variable=self.unet_3d,
-                                    command=self._change_to_3d_model)
-        method_menu.add_radiobutton(label="2D U-net model", value=0, variable=self.unet_3d,
-                                    command=self._change_to_2d_model)
+        for idx, (model_name, _) in enumerate(self._ml_methods):
+            method_menu.add_radiobutton(label=model_name, value=idx, variable=self._ml_method_idx,
+                                        command=self._set_model)
 
         self.menubar.add_cascade(label="ML Method", menu=method_menu)
 
-    def _change_to_2d_model(self):
-        if self.previous_unet_3d:
-            self._service.set_2d_model()
-            self.previous_unet_3d = False
+    def _set_model(self):
+        if self._loaded_ml_method_idx != self._ml_method_idx.get():
+            self._ml_methods[self._ml_method_idx.get()][1]()
+            self._loaded_ml_method_idx = self._ml_method_idx.get()
 
-    def _change_to_3d_model(self):
-        if not self.previous_unet_3d:
-            self._service.set_3d_model()
-            self.previous_unet_3d = True
+    def _set_2D_Unet_model(self):
+        self._service.set_2d_model()
+
+    def _set_3D_Unet_model(self):
+        self._service.set_3d_model()
 
     def _on_load_image(self):
         self.image_path = tk.filedialog.askopenfilename(parent=self.root, initialdir="/", title="Select image file",

@@ -14,7 +14,7 @@ from keras.layers.pooling import MaxPooling2D
 from keras.models import Model, load_model
 from skimage.color import gray2rgb, rgb2gray
 from skimage.io import imread, imsave
-from skimage.transform import resize
+from skimage.transform import resize, rescale
 from tqdm import tqdm
 
 warnings.filterwarnings('ignore', category=UserWarning, module='skimage')
@@ -50,16 +50,18 @@ def dice_coef_loss(yt, yp, smooth=1):
 
 
 class Unet2DModel:
-    def __init__(self,
-                 channels,
-                 train_path_in,
-                 test_path_in,
-                 train_path_out,
-                 test_path_out,
-                 test_data_labeled,
-                 classes=[((0, 0, 0), "Background"), ((255, 255, 255), "Class 1")]):
+    def __init__( self,
+                  classes,
+                  size,
+                  channels,
+                  train_path_in = None,
+                  test_path_in = None,
+                  train_path_out = None,
+                  test_path_out = None,
+                  test_data_labeled = None,
+                  ):
 
-        self.IMG_SIZE = 128
+        self.IMG_SIZE = size
         self.IMG_CHANNELS = channels
         self.TRAIN_PATH = train_path_in
         self.TEST_PATH = test_path_in
@@ -72,12 +74,10 @@ class Unet2DModel:
 
         self.MODEL_PATH = "./unet/my_model.h5"
         self.LOG_DIR = "logs\\fit\\" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        os.makedirs(self.LOG_DIR)
 
-        self.VALIDATION_SPLIT = 0.2
+        self.VALIDATION_SPLIT = 0.1
 
         self.epochs_measured = 0
-        self.tensorboard = TensorBoard(log_dir=self.LOG_DIR, histogram_freq=1)
 
         self.ones = np.ones((self.IMG_SIZE, self.IMG_SIZE, self.IMG_CHANNELS), dtype=np.uint8)
 
@@ -228,16 +228,18 @@ class Unet2DModel:
         earlystopper = EarlyStopping(patience=5, verbose=1)
         checkpointer = ModelCheckpoint(self.MODEL_PATH, verbose=1, save_best_only=True, monitor="val_iou_coef_loss")
         # checkpointer = ModelCheckpoint( self.MODEL_PATH, verbose=1, save_best_only=True )
+        tensorboard = TensorBoard(log_dir=self.LOG_DIR, histogram_freq=1)
 
         self.model.fit(self.train_images, self.train_masks, validation_split=self.VALIDATION_SPLIT,
                        batch_size=16, epochs=epochs,
-                       callbacks=[earlystopper, checkpointer, self.tensorboard])
+                       callbacks=[earlystopper, checkpointer, tensorboard])
 
         self.epochs_measured += epochs
 
     # prediction has the shape x y m
     def _prediction_to_mask(self, prediction):
-        mask = np.zeros((self.IMG_SIZE, self.IMG_SIZE, self.IMG_CHANNELS), dtype=np.uint8)
+        dims = prediction.shape[:2] + (self.IMG_CHANNELS,)
+        mask = np.zeros(dims, dtype=np.uint8)
         idxs = np.argmax(prediction, axis=-1)
         for cn, (k, _) in enumerate(self.CLASSES):
             mask[idxs == cn] = k
@@ -253,6 +255,7 @@ class Unet2DModel:
     def predict_volume(self, img):
         original_size = img.shape[:3]
         original_channel_nr = img.shape[3] if len(img.shape) == 4 else 0
+        upscale_factor=(original_size[0]/self.IMG_SIZE,original_size[1]/self.IMG_SIZE,original_size[2]/self.IMG_SIZE)
 
         img = img * (255 / img.max())
 
@@ -264,11 +267,11 @@ class Unet2DModel:
 
         preds = self.model.predict(resized_data, verbose=1)
 
-        generated_mask = self._predictions_to_mask(preds)
-        generated_mask_resized = resize(generated_mask, original_size, mode='edge', preserve_range=True, order=0,
-                                        anti_aliasing=False)
-        if (original_channel_nr != self.IMG_CHANNELS):
-            generated_mask_resized = rgb2gray(generated_mask_resized)
+        pred_resized = rescale(preds,upscale_factor,multichannel=True, mode='edge', preserve_range=True, order = 1, anti_aliasing = False)
 
-        return generated_mask_resized
+        generated_mask = self._predictions_to_mask(pred_resized)
+        if (original_channel_nr != self.IMG_CHANNELS):
+            generated_mask = (rgb2gray(generated_mask)*255).astype(np.uint8)
+
+        return generated_mask
 
