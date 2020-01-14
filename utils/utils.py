@@ -1,7 +1,8 @@
 import os
+import tkinter as tk
 
-import numpy as np
 import nibabel as nib
+import numpy as np
 
 
 def load_nifti_image(img_path):
@@ -24,6 +25,14 @@ def load_and_prepare_nifti_image(path):
     image_data = image_data.astype(np.uint8)
     image_data = np.expand_dims(image_data, axis=-1)
     return image_data
+
+
+def get_path_for_saving(extension):
+    f = tk.filedialog.asksaveasfile(mode='w', defaultextension=extension)
+    if f is None:
+        return None
+    else:
+        return f.name
 
 
 def evaluate_model(model, metrics, batch_size):

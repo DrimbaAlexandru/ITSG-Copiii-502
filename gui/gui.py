@@ -1,6 +1,8 @@
+import os
 import tkinter as tk
 import webbrowser
 
+import utils.utils as utils
 from gui.components.controlsGUIComponent import ControlsComponent
 from gui.components.niftiPlotGUIComponent import MRIPlotComponent
 from service.app_service import AppService
@@ -26,6 +28,8 @@ class AppGUI:
         # Class constants
         self._menu_file = [("Open NIfTI image", self._on_load_image),
                            ("Open NIfTI image labels", self._on_load_labels),
+                           ("Separator", None),
+                           ("Render 3D labels", self._on_render_3d),
                            ("Separator", None),
                            ("Exit", self.root.quit)]
         self._menus = [("File", self._menu_file)]
@@ -98,6 +102,19 @@ class AppGUI:
         self._service.set_labels_path(self.label_path)
         if self.label_path != "":
             self._display_nifti_image()
+
+    def _on_render_3d(self):
+        label_path = tk.filedialog.askopenfilename(parent=self.root, initialdir="/", title="Select image mask",
+                                                   filetypes=(
+                                                       ("NIfTI files", "*.nii.gz;*.nii"), ("all files", "*.*")))
+        self._service.generate_3d_rendered(label_path, utils.get_path_for_saving, self._on_3d_mask_generated)
+
+    def _on_3d_mask_generated(self, path):
+        if path != "":
+            url = os.path.abspath(path)
+            webbrowser.open(url, new=2)
+        else:
+            print("WARN: The path for the 3d rendered mask is not valid")
 
     def _display_nifti_image(self):
         self.plot_canvas.set_image_paths(self.image_path, self.label_path)

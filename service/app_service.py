@@ -1,8 +1,9 @@
-from unet.unet_3D.unet3DModelWithGenerator import Unet3DModelWithGenerator
-from unet.unet_2D.unet2DModel import Unet2DModel
-from renderer.renderer3d import Renderer3D
+import nibabel as nib
 
 import utils.utils as myUtils
+from renderer.renderer3d import Renderer3D
+from unet.unet_2D.unet2DModel import Unet2DModel
+from unet.unet_3D.unet3DModelWithGenerator import Unet3DModelWithGenerator
 
 
 class AppService:
@@ -54,9 +55,16 @@ class AppService:
         image_data, affine = myUtils.load_nifti_image(self._image_path)
 
         generated_mask = self._model.predict_volume(image_data)
-
         self._save_main_mask(generated_mask, affine, get_path_for_saving_callback, labels_generated_callback)
-        self._save_3d_rendered_mask(generated_mask, get_path_for_saving_callback, rendered_mask_generated_callback)
+
+        iframe_to_save = self._renderer.generate(generated_mask)
+        self._save_3d_rendered_mask(iframe_to_save, get_path_for_saving_callback, rendered_mask_generated_callback)
+
+    def generate_3d_rendered(self, image_path, get_path_for_saving_callback, rendered_mask_generated_callback):
+        # nifti_image = nib.load(image_path)
+        image_data, affine = myUtils.load_nifti_image(image_path)
+        iframe_to_save = self._renderer.generate(image_data)
+        self._save_3d_rendered_mask(iframe_to_save, get_path_for_saving_callback, rendered_mask_generated_callback)
 
     def _save_main_mask(self, image_to_save, affine, get_path_for_saving_callback, labels_generated_callback):
         path = get_path_for_saving_callback(".nii")
@@ -71,8 +79,7 @@ class AppService:
         except Exception:
             print("ERROR: Labels could not be saved! Please generate again!")
 
-    def _save_3d_rendered_mask(self, image, get_path_for_saving_callback, rendered_mask_generated_callback):
-        iframe_to_save = self._renderer.generate(image)
+    def _save_3d_rendered_mask(self, iframe_to_save, get_path_for_saving_callback, rendered_mask_generated_callback):
         path = get_path_for_saving_callback(".html")
         if path is None:
             print(
