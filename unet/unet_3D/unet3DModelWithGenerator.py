@@ -195,8 +195,8 @@ class Unet3DModelWithGenerator:
             return
 
         # Fit model
-        earlystopper = EarlyStopping(patience=5, verbose=1)
-        checkpointer = ModelCheckpoint(self.MODEL_PATH, verbose=1, save_best_only=True, monitor="val_iou_coef_loss")
+        earlystopper = EarlyStopping(patience=5, verbose=1, monitor="iou_coef_loss")
+        checkpointer = ModelCheckpoint(self.MODEL_PATH, verbose=1, save_best_only=True, monitor="iou_coef_loss")
         # checkpointer = ModelCheckpoint( self.MODEL_PATH, verbose=1, save_best_only=True )
 
         self.model.fit_generator(generator=self.learning_generator,epochs=epochs,

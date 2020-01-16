@@ -9,10 +9,10 @@ import utils.utils as myUtils
 # Set some parameters
 IMG_SIZE = 64
 IMG_CHANNELS = 3
-TRAIN_PATH = './unet/input/NIfTI/NIfTIs/training/'
-TEST_PATH = './unet/input/NIfTI/NIfTIs/testing/'
-PREPROCESSED_TRAIN_PATH = "./unet/input/NIfTI/training/"
-PREPROCESSED_TEST_PATH = "./unet/input/NIfTI/testing/"
+TRAIN_PATH = './input/NIfTI/NIfTIs/training/'
+TEST_PATH = './input/NIfTI/NIfTIs/testing/'
+PREPROCESSED_TRAIN_PATH = "./input/NIfTI/training/"
+PREPROCESSED_TEST_PATH = "./input/NIfTI/testing/"
 TEST_DATA_LABELED = True
 
 needs_preprocess = False
@@ -92,7 +92,7 @@ metrics = {}
 
 model.create_model()
 #model.load_model()
-for i in range( 0, 20 ):
+for i in range( 0, 10 ):
     model.fit_model( 5 )
     model.save_model()
     #model.predict_from_model()
