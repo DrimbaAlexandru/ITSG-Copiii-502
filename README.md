@@ -20,7 +20,7 @@ In order to open the app, the file __app.py__ must be run.
 3. The system can generate labels for an uploaded medical image; the generated labels will depict the ventricular myocardium, blood pool, and the background;
 4. The user can view the original medical image with the generated labels overlayed, having control over the opacity of the labels as a whole;
 5. The user can view a rendered 3D view of the generated labels with the possibility of interacting with it;
-6. The user can to save both the generated labels and the 3D rendered view to a path of his choice;
+6. The user can save both the generated labels and the 3D rendered view to a path of his choice;
 7. The user can choose what U-Net model to be used for the generation of the
 labels: 2D U-Net or 3D U-Net (the improved one).
 
